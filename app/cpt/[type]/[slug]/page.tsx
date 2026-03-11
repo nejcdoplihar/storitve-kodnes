@@ -239,16 +239,16 @@ export async function generateMetadata({ params }: Props) {
   const cleanExcerpt = stripHtml(post.excerpt?.rendered);
   const cleanContent = stripHtml(post.content?.rendered);
 
-  return {
+return {
+  title: cleanTitle,
+  description: (cleanExcerpt || cleanContent || "").substring(0, 160),
+  openGraph: {
     title: cleanTitle,
     description: (cleanExcerpt || cleanContent || "").substring(0, 160),
-    openGraph: {
-      title: cleanTitle,
-      description: (cleanExcerpt || cleanContent || "").substring(0, 160),
-      images: image ? [{ url: image }] : [],
-      type: "article",
-    },
-  };
+    images: image ? [{ url: image }] : [],
+    type: "article",
+  }
+};
 }
 
 export default async function CPTSinglePage({ params }: Props) {
