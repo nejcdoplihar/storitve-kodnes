@@ -12,7 +12,7 @@ import {
 import { CPT_CONFIGS } from "@/types/wordpress";
 
 interface Props {
-  params: { type: string; slug: string };
+  params: Promise<{ type: string; slug: string }>;
 }
 
 const STORITVE_LABELS: Record<string, string> = {
@@ -230,7 +230,9 @@ export async function generateStaticParams() {
 }
 
 export async function generateMetadata({ params }: Props) {
-  const post = await getCPTPostBySlug(params.type, params.slug);
+  const { type, slug } = await params;
+
+  const post = await getCPTPostBySlug(type, slug);
 
   if (!post) return { title: "Ni najdeno" };
 
@@ -239,23 +241,25 @@ export async function generateMetadata({ params }: Props) {
   const cleanExcerpt = stripHtml(post.excerpt?.rendered);
   const cleanContent = stripHtml(post.content?.rendered);
 
-return {
-  title: cleanTitle,
-  description: (cleanExcerpt || cleanContent || "").substring(0, 160),
-  openGraph: {
+  return {
     title: cleanTitle,
     description: (cleanExcerpt || cleanContent || "").substring(0, 160),
-    images: image ? [{ url: image }] : [],
-    type: "article",
-  }
-};
+    openGraph: {
+      title: cleanTitle,
+      description: (cleanExcerpt || cleanContent || "").substring(0, 160),
+      images: image ? [{ url: image }] : [],
+      type: "article",
+    },
+  };
 }
 
 export default async function CPTSinglePage({ params }: Props) {
-  const cpt = CPT_CONFIGS.find((c) => c.slug === params.type);
+  const { type, slug } = await params;
+
+  const cpt = CPT_CONFIGS.find((c) => c.slug === type);
   if (!cpt) notFound();
 
-  const post = await getCPTPostBySlug(params.type, params.slug);
+  const post = await getCPTPostBySlug(type, slug);
   if (!post) notFound();
 
   const imageUrl = getFeaturedImageUrl(post, "full");
