@@ -22,18 +22,6 @@ const STORITVE_LABELS: Record<string, string> = {
   vzdrzevanje: "Vzdrževanje",
 };
 
-function getStoritevLabel(value: unknown) {
-  if (!value) return "Ni podatka";
-
-  if (Array.isArray(value)) {
-    return value
-      .map((item) => STORITVE_LABELS[String(item)] || String(item))
-      .join(", ");
-  }
-
-  return STORITVE_LABELS[String(value)] || String(value);
-}
-
 type ACFValue =
   | string
   | number
@@ -59,355 +47,165 @@ function isEmptyValue(value: unknown) {
   if (value === null || value === undefined) return true;
   if (typeof value === "string" && value.trim() === "") return true;
   if (Array.isArray(value) && value.length === 0) return true;
-  if (
-    typeof value === "object" &&
-    value !== null &&
-    Object.keys(value).length === 0
-  ) {
-    return true;
-  }
+  if (typeof value === "object" && value !== null && Object.keys(value).length === 0) return true;
   return false;
 }
 
-function isHtmlString(value: string) {
-  return /<\/?[a-z][\s\S]*>/i.test(value);
-}
-
-function renderSimpleObject(obj: Record<string, unknown>): ReactNode {
-  const preferredKeys = [
-    "title",
-    "name",
-    "label",
-    "post_title",
-    "value",
-    "post_name",
-  ];
-
-  for (const key of preferredKeys) {
-    const val = obj[key];
-    if (typeof val === "string" || typeof val === "number") {
-      return String(val);
-    }
-  }
-
-  if (typeof obj.rendered === "string") {
-    return (
-      <div
-        className="prose prose-sm max-w-none"
-        dangerouslySetInnerHTML={{ __html: obj.rendered }}
-      />
-    );
-  }
-
-  if (typeof obj.url === "string") {
-    const title =
-      typeof obj.title === "string"
-        ? obj.title
-        : typeof obj.filename === "string"
-        ? obj.filename
-        : obj.url;
-
-    return (
-      <a
-        href={obj.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-blue-600 underline break-all hover:text-blue-700"
-      >
-        {title}
-      </a>
-    );
-  }
-
-  if (typeof obj.sizes === "object" && obj.sizes !== null) {
-    const sizes = obj.sizes as Record<string, unknown>;
-
-    const imgSrc =
-      (typeof sizes.medium === "string" && sizes.medium) ||
-      (typeof sizes.large === "string" && sizes.large) ||
-      (typeof obj.url === "string" && obj.url);
-
-    if (imgSrc) {
-      return (
-        <div className="space-y-3">
-          <img
-            src={imgSrc}
-            alt={typeof obj.alt === "string" ? obj.alt : "Slika"}
-            className="max-h-64 w-auto rounded-xl border border-gray-200"
-          />
-          {typeof obj.caption === "string" && stripHtml(obj.caption) && (
-            <p className="text-sm text-gray-500">{stripHtml(obj.caption)}</p>
-          )}
-        </div>
-      );
-    }
-  }
-
-  const entries = Object.entries(obj).filter(([, value]) => !isEmptyValue(value));
-
-  if (entries.length === 0) return "Ni podatka";
-
-  return (
-    <dl className="space-y-3">
-      {entries.slice(0, 8).map(([key, value]) => (
-        <div key={key}>
-          <dt className="mb-1 text-xs font-semibold uppercase tracking-wider text-gray-500">
-            {prettifyLabel(key)}
-          </dt>
-          <dd className="text-sm text-gray-900 break-words">
-            {renderAcfValue(value as ACFValue)}
-          </dd>
-        </div>
-      ))}
-    </dl>
-  );
+function getStoritevLabel(value: unknown) {
+  if (!value) return "—";
+  if (Array.isArray(value)) return value.map((v) => STORITVE_LABELS[String(v)] || String(v)).join(", ");
+  return STORITVE_LABELS[String(value)] || String(value);
 }
 
 function renderAcfValue(value: ACFValue): ReactNode {
-  if (isEmptyValue(value)) return "Ni podatka";
+  if (isEmptyValue(value)) return <span style={{ color: "#aaa" }}>—</span>;
+
+  if (typeof value === "boolean") {
+    return (
+      <span style={{
+        display: "inline-flex", alignItems: "center", gap: 4,
+        padding: "2px 10px", borderRadius: 20, fontSize: 12, fontWeight: 600,
+        background: value ? "#dcfce7" : "#fee2e2",
+        color: value ? "#15803d" : "#dc2626",
+      }}>
+        {value ? "Da" : "Ne"}
+      </span>
+    );
+  }
+
+  if (typeof value === "number") return <span style={{ fontWeight: 600 }}>{value}</span>;
 
   if (typeof value === "string") {
-    if (isHtmlString(value)) {
+    if (value.startsWith("http://") || value.startsWith("https://")) {
       return (
-        <div
-          className="prose prose-sm max-w-none"
-          dangerouslySetInnerHTML={{ __html: value }}
-        />
-      );
-    }
-
-    if (
-      value.startsWith("http://") ||
-      value.startsWith("https://") ||
-      value.startsWith("mailto:") ||
-      value.startsWith("tel:")
-    ) {
-      return (
-        <a
-          href={value}
-          target={value.startsWith("http") ? "_blank" : undefined}
-          rel={value.startsWith("http") ? "noopener noreferrer" : undefined}
-          className="text-blue-600 underline break-all hover:text-blue-700"
-        >
+        <a href={value} target="_blank" rel="noreferrer"
+          style={{ color: "#3b82f6", textDecoration: "none", wordBreak: "break-all" }}>
           {value}
         </a>
       );
     }
-
-    return value;
-  }
-
-  if (typeof value === "number") {
-    return String(value);
-  }
-
-  if (typeof value === "boolean") {
-    return value ? "Da" : "Ne";
+    // ACF date format YYYYMMDD
+    if (/^\d{8}$/.test(value)) {
+      const formatted = new Date(`${value.slice(0,4)}-${value.slice(4,6)}-${value.slice(6,8)}`).toLocaleDateString("sl-SI");
+      return <span>{formatted}</span>;
+    }
+    return <span>{value}</span>;
   }
 
   if (Array.isArray(value)) {
-    const filtered = value.filter((item) => !isEmptyValue(item));
-    if (filtered.length === 0) return "Ni podatka";
-
+    const filtered = value.filter((v) => !isEmptyValue(v));
+    if (filtered.length === 0) return <span style={{ color: "#aaa" }}>—</span>;
     return (
-      <div className="space-y-2">
-        {filtered.map((item, index) => (
-          <div
-            key={index}
-            className="rounded-xl border border-gray-200 bg-white px-4 py-3"
-          >
-            {renderAcfValue(item)}
-          </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+        {filtered.map((item, i) => (
+          <span key={i} style={{ padding: "3px 10px", borderRadius: 20, fontSize: 12, background: "#f0f0f0", color: "#444" }}>
+            {typeof item === "string" ? (STORITVE_LABELS[item] || item) : String(item)}
+          </span>
         ))}
       </div>
     );
   }
 
   if (typeof value === "object" && value !== null) {
-    return renderSimpleObject(value as Record<string, unknown>);
+    const obj = value as Record<string, unknown>;
+    if (typeof obj.rendered === "string") {
+      return <span dangerouslySetInnerHTML={{ __html: obj.rendered }} />;
+    }
+    const preferredKeys = ["title", "name", "label", "post_title", "value"];
+    for (const key of preferredKeys) {
+      if (typeof obj[key] === "string") return <span>{obj[key] as string}</span>;
+    }
   }
 
-  return String(value);
+  return <span>{String(value)}</span>;
 }
 
 function Card({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-      <h2 className="mb-5 text-lg font-semibold text-gray-900">{title}</h2>
-      {children}
-    </section>
+    <div style={{
+      background: "#fff", borderRadius: 14, border: "1px solid #f0f0f0",
+      boxShadow: "0 1px 4px rgba(0,0,0,0.06)", overflow: "hidden", marginBottom: 20,
+    }}>
+      <div style={{ padding: "16px 24px", borderBottom: "1px solid #f5f5f5" }}>
+        <div style={{ fontWeight: 700, fontSize: 14, color: "#111" }}>{title}</div>
+      </div>
+      <div style={{ padding: "8px 24px 16px" }}>{children}</div>
+    </div>
   );
 }
 
 function DetailRow({ label, value }: { label: string; value: ReactNode }) {
   return (
-    <div className="grid grid-cols-1 gap-1 border-b border-gray-100 py-3 last:border-b-0 sm:grid-cols-[140px_1fr] sm:gap-4">
-      <div className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+    <div style={{
+      display: "grid", gridTemplateColumns: "160px 1fr", gap: 12,
+      padding: "11px 0", borderBottom: "1px solid #f7f7f7", alignItems: "start",
+    }}>
+      <div style={{ fontSize: 12, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.05em", paddingTop: 2 }}>
         {label}
       </div>
-      <div className="text-sm text-gray-900 break-words">{value ?? "Ni podatka"}</div>
+      <div style={{ fontSize: 14, color: "#111", wordBreak: "break-word" }}>
+        {value ?? <span style={{ color: "#aaa" }}>—</span>}
+      </div>
     </div>
   );
 }
 
-function SpecificAcfCard({
-  type,
-  acf,
-}: {
-  type: string;
-  acf?: Record<string, unknown>;
-}) {
+function NarocnikCard({ acf }: { acf?: Record<string, unknown> }) {
   if (!acf) return null;
-
-  if (type === "narocnik") {
-    return (
-      <Card title="Podatki naročnika">
-        <div className="space-y-1">
-          <DetailRow
-            label="Kontaktna oseba"
-            value={renderAcfValue(acf.kontaktna_oseba as ACFValue)}
-          />
-          <DetailRow label="Email" value={renderAcfValue(acf.email as ACFValue)} />
-          <DetailRow
-            label="Telefon"
-            value={renderAcfValue(acf.telefon as ACFValue)}
-          />
-          <DetailRow
-            label="Podjetje"
-            value={renderAcfValue(acf.podjetje as ACFValue)}
-          />
-          <DetailRow
-            label="Naslov"
-            value={renderAcfValue(acf.naslov as ACFValue)}
-          />
-        </div>
-      </Card>
-    );
-  }
-
-  if (type === "storitev") {
-    return (
-      <Card title="Podatki storitve">
-        <div className="space-y-1">
-          <DetailRow label="Kategorija" value={getStoritevLabel(acf.kategorija)} />
-          <DetailRow label="Cena" value={renderAcfValue(acf.cena as ACFValue)} />
-          <DetailRow
-            label="Trajanje"
-            value={renderAcfValue(acf.trajanje as ACFValue)}
-          />
-          <DetailRow
-            label="Status storitve"
-            value={renderAcfValue(acf.status_storitve as ACFValue)}
-          />
-        </div>
-      </Card>
-    );
-  }
-
-  if (type === "ponudba") {
-    return (
-      <Card title="Podatki ponudbe">
-        <div className="space-y-1">
-          <DetailRow
-            label="Številka ponudbe"
-            value={renderAcfValue(acf.stevilka_ponudbe as ACFValue)}
-          />
-          <DetailRow label="Znesek" value={renderAcfValue(acf.znesek as ACFValue)} />
-          <DetailRow
-            label="Status ponudbe"
-            value={renderAcfValue(acf.status_ponudbe as ACFValue)}
-          />
-          <DetailRow
-            label="Veljavnost"
-            value={renderAcfValue(acf.veljavnost as ACFValue)}
-          />
-        </div>
-      </Card>
-    );
-  }
-
-  return null;
-}
-
-function AdditionalAcfGrid({
-  acf,
-  excludedKeys = [],
-}: {
-  acf?: Record<string, unknown>;
-  excludedKeys?: string[];
-}) {
-  if (!acf) return null;
-
-  const entries = Object.entries(acf)
-    .filter(([key, value]) => !excludedKeys.includes(key) && !isEmptyValue(value))
-    .sort(([a], [b]) => a.localeCompare(b));
-
-  if (entries.length === 0) return null;
-
   return (
-    <Card title="Dodatne informacije">
-      <dl className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {entries.map(([key, value]) => (
-          <div
-            key={key}
-            className="rounded-xl border border-gray-100 bg-gray-50 p-4"
-          >
-            <dt className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
-              {prettifyLabel(key)}
-            </dt>
-            <dd className="text-sm text-gray-900 break-words">
-              {renderAcfValue(value as ACFValue)}
-            </dd>
-          </div>
-        ))}
-      </dl>
+    <Card title="Podatki naročnika">
+      <DetailRow label="Kontaktna oseba" value={renderAcfValue(acf.kontaktna_oseba as ACFValue)} />
+      <DetailRow label="Email" value={renderAcfValue(acf.email as ACFValue)} />
+      <DetailRow label="Telefon" value={renderAcfValue(acf.telefon as ACFValue)} />
+      <DetailRow label="Podjetje" value={renderAcfValue(acf.podjetje as ACFValue)} />
+      <DetailRow label="Naslov" value={renderAcfValue(acf.naslov as ACFValue)} />
     </Card>
   );
 }
 
-// Pre-generira statične strani za vse poste (SSG)
+function StrankaCard({ acf }: { acf?: Record<string, unknown> }) {
+  if (!acf) return null;
+  return (
+    <Card title="Podatki stranke">
+      <DetailRow label="Storitev" value={getStoritevLabel(acf.storitve)} />
+      <DetailRow label="Domena URL" value={renderAcfValue(acf.domena_url as ACFValue)} />
+      <DetailRow label="Potek storitev" value={renderAcfValue(acf.potek_storitev as ACFValue)} />
+      <DetailRow label="Stanje storitve" value={renderAcfValue(acf.stanje_storitve as ACFValue)} />
+      <DetailRow label="Strošek" value={acf.strosek ? `${acf.strosek} €` : "—"} />
+      <DetailRow label="Obračun" value={renderAcfValue(acf.strosek_obracun as ACFValue)} />
+      <DetailRow label="Opombe" value={renderAcfValue(acf.opombe as ACFValue)} />
+    </Card>
+  );
+}
+
+function PonudbaCard({ acf }: { acf?: Record<string, unknown> }) {
+  if (!acf) return null;
+  return (
+    <Card title="Podatki ponudbe">
+      <DetailRow label="Številka ponudbe" value={renderAcfValue(acf.stevilka_ponudbe as ACFValue)} />
+      <DetailRow label="Znesek" value={renderAcfValue(acf.znesek as ACFValue)} />
+      <DetailRow label="Status ponudbe" value={renderAcfValue(acf.status_ponudbe as ACFValue)} />
+      <DetailRow label="Veljavnost" value={renderAcfValue(acf.veljavnost as ACFValue)} />
+    </Card>
+  );
+}
+
 export async function generateStaticParams() {
   const paths: { type: string; slug: string }[] = [];
-
   for (const cpt of CPT_CONFIGS) {
     try {
       const slugs = await getAllCPTSlugs(cpt.slug);
-      slugs.forEach((slug) => {
-        if (slug) {
-          paths.push({ type: cpt.slug, slug });
-        }
-      });
-    } catch {
-      // CPT morda ne obstaja, preskoči
-    }
+      slugs.forEach((slug) => { if (slug) paths.push({ type: cpt.slug, slug }); });
+    } catch { /* preskoči */ }
   }
-
   return paths;
 }
 
 export async function generateMetadata({ params }: Props) {
   const { type, slug } = await params;
-
   const post = await getCPTPostBySlug(type, slug).catch(() => null);
-
   if (!post) return { title: "Ni najdeno" };
-
-  const image = getFeaturedImageUrl(post, "large");
-  const cleanTitle = stripHtml(post.title?.rendered) || "Podrobnosti";
-  const cleanExcerpt = stripHtml(post.excerpt?.rendered);
-  const cleanContent = stripHtml(post.content?.rendered);
-  const description = (cleanExcerpt || cleanContent || "").substring(0, 160);
-
-  return {
-    title: cleanTitle,
-    description,
-    openGraph: {
-      title: cleanTitle,
-      description,
-      images: image ? [{ url: image }] : [],
-      type: "article",
-    },
-  };
+  return { title: stripHtml(post.title?.rendered) || "Podrobnosti" };
 }
 
 export default async function CPTSinglePage({ params }: Props) {
@@ -420,170 +218,109 @@ export default async function CPTSinglePage({ params }: Props) {
   if (!post) notFound();
 
   const imageUrl = getFeaturedImageUrl(post, "full");
-  const author = post._embedded?.author?.[0];
-  const terms = post._embedded?.["wp:term"]?.flat() || [];
-  const plainExcerpt = stripHtml(post.excerpt?.rendered);
-  const hasMainContent = Boolean(stripHtml(post.content?.rendered));
-
-  const excludedKeys = [
-    "kontaktna_oseba",
-    "email",
-    "telefon",
-    "podjetje",
-    "naslov",
-    "kategorija",
-    "cena",
-    "trajanje",
-    "status_storitve",
-    "stevilka_ponudbe",
-    "znesek",
-    "status_ponudbe",
-    "veljavnost",
-  ];
+  const hasContent = Boolean(stripHtml(post.content?.rendered));
 
   return (
-    <article className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <nav className="mb-6 flex flex-wrap items-center gap-2 text-sm text-gray-500">
-        <Link href="/" className="transition-colors hover:text-blue-600">
-          Domov
-        </Link>
-        <span>›</span>
-        <Link
-          href={`/cpt/${cpt.slug}`}
-          className="transition-colors hover:text-blue-600"
-        >
-          {cpt.icon} {cpt.label}
-        </Link>
-        <span>›</span>
-        <span
-          className="max-w-xs truncate text-gray-900"
-          dangerouslySetInnerHTML={{ __html: post.title.rendered }}
-        />
-      </nav>
+    <div style={{ minHeight: "100vh", background: "#f8f9fb", fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+      {/* Header */}
+      <div style={{ background: "#0f172a", padding: "0 32px", height: 56, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ width: 28, height: 28, borderRadius: 7, background: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 14 }}>⚡</div>
+          <span style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>WP Dashboard</span>
+        </div>
+        <Link href="/admin" style={{ fontSize: 13, color: "#94a3b8", textDecoration: "none" }}>← Dashboard</Link>
+      </div>
 
-      <header className="mb-8">
-        <div className="mb-4 flex flex-wrap items-center gap-3">
-          <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
-            {cpt.icon} {cpt.label}
-          </span>
+      {/* Breadcrumb */}
+      <div style={{ padding: "16px 32px", borderBottom: "1px solid #eee", background: "#fff", display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#888" }}>
+        <Link href="/admin" style={{ color: "#3b82f6", textDecoration: "none" }}>Pregled</Link>
+        <span>›</span>
+        <Link href={`/cpt/${cpt.slug}`} style={{ color: "#3b82f6", textDecoration: "none" }}>{cpt.icon} {cpt.label}</Link>
+        <span>›</span>
+        <span style={{ color: "#111", fontWeight: 500 }} dangerouslySetInnerHTML={{ __html: post.title.rendered }} />
+      </div>
 
-          <span
-            className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
-              post.status === "publish"
-                ? "bg-green-50 text-green-700"
-                : "bg-yellow-50 text-yellow-700"
-            }`}
-          >
-            {post.status === "publish" ? "Objavljeno" : "Osnutek"}
-          </span>
+      {/* Content */}
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "32px 32px" }}>
+
+        {/* Title area */}
+        <div style={{ marginBottom: 28 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+            <span style={{ padding: "3px 12px", borderRadius: 20, fontSize: 12, fontWeight: 600, background: "#eff6ff", color: "#3b82f6" }}>
+              {cpt.icon} {cpt.label}
+            </span>
+            <span style={{
+              padding: "3px 12px", borderRadius: 20, fontSize: 12, fontWeight: 600,
+              background: post.status === "publish" ? "#dcfce7" : "#fef9c3",
+              color: post.status === "publish" ? "#15803d" : "#854d0e",
+            }}>
+              {post.status === "publish" ? "Objavljeno" : "Osnutek"}
+            </span>
+          </div>
+          <h1 style={{ fontSize: 28, fontWeight: 800, color: "#111", margin: 0, lineHeight: 1.2 }}
+            dangerouslySetInnerHTML={{ __html: post.title.rendered }} />
+          <div style={{ fontSize: 13, color: "#aaa", marginTop: 8 }}>
+            Datum objave: {formatDate(post.date)}
+          </div>
         </div>
 
-        <h1
-          className="mb-4 text-3xl font-bold leading-tight text-gray-900 md:text-5xl"
-          dangerouslySetInnerHTML={{ __html: post.title.rendered }}
-        />
-
-        {plainExcerpt && (
-          <p className="max-w-3xl text-lg leading-relaxed text-gray-600">
-            {plainExcerpt}
-          </p>
+        {/* Featured image */}
+        {imageUrl && (
+          <div style={{ marginBottom: 28, borderRadius: 14, overflow: "hidden", border: "1px solid #f0f0f0", background: "#fff", maxHeight: 320, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <img src={imageUrl} alt={stripHtml(post.title.rendered)}
+              style={{ maxHeight: 320, maxWidth: "100%", objectFit: "contain" }} />
+          </div>
         )}
 
-        <div className="mt-6 flex flex-wrap items-center gap-4 text-sm text-gray-500">
-          <span>📅 {formatDate(post.date)}</span>
+        {/* 2 column layout */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 24, alignItems: "start" }}>
 
-          {author && (
-            <span className="flex items-center gap-2">
-              {author.avatar_urls?.["48"] && (
-                <img
-                  src={author.avatar_urls["48"]}
-                  alt={author.name}
-                  className="h-6 w-6 rounded-full"
-                />
-              )}
-              {author.name}
-            </span>
-          )}
-
-          {terms.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {terms.map((term) => (
-                <span
-                  key={`${term.taxonomy}-${term.id}`}
-                  className="rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-700"
-                >
-                  {term.name}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-      </header>
-
-      {imageUrl && (
-        <div className="mb-10 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-          <img
-            src={imageUrl}
-            alt={stripHtml(post.title.rendered)}
-            className="max-h-[520px] w-full object-cover"
-          />
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,2fr)_360px]">
-        <div className="space-y-8">
-          <Card title="Vsebina">
-            {hasMainContent ? (
-              <div
-                className="wp-content prose max-w-none prose-headings:scroll-mt-24"
-                dangerouslySetInnerHTML={{
-                  __html: post.content?.rendered || "",
-                }}
-              />
-            ) : (
-              <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-sm text-gray-500">
-                Za ta vnos ni dodane vsebine.
-              </div>
+          {/* Left — vsebina + ACF */}
+          <div>
+            {hasContent && (
+              <Card title="Vsebina">
+                <div style={{ fontSize: 14, color: "#333", lineHeight: 1.7, padding: "8px 0" }}
+                  dangerouslySetInnerHTML={{ __html: post.content?.rendered || "" }} />
+              </Card>
             )}
-          </Card>
 
-          <AdditionalAcfGrid acf={post.acf} excludedKeys={excludedKeys} />
-        </div>
+            {type === "narocnik" && <NarocnikCard acf={post.acf} />}
+            {type === "stranka" && <StrankaCard acf={post.acf} />}
+            {type === "ponudba" && <PonudbaCard acf={post.acf} />}
+          </div>
 
-        <aside className="space-y-6">
-          <Card title="Osnovni podatki">
-            <div className="space-y-1">
+          {/* Right sidebar */}
+          <div>
+            <Card title="Osnovni podatki">
               <DetailRow label="Tip vsebine" value={cpt.label} />
-              <DetailRow label="Slug" value={post.slug} />
+              <DetailRow label="Slug" value={<span style={{ fontFamily: "monospace", fontSize: 12, background: "#f5f5f5", padding: "2px 6px", borderRadius: 4 }}>{post.slug}</span>} />
               <DetailRow label="Datum objave" value={formatDate(post.date)} />
-              <DetailRow
-                label="Status"
-                value={post.status === "publish" ? "Objavljeno" : "Osnutek"}
-              />
-            </div>
-          </Card>
+              <DetailRow label="Status" value={
+                <span style={{
+                  padding: "2px 10px", borderRadius: 20, fontSize: 12, fontWeight: 600,
+                  background: post.status === "publish" ? "#dcfce7" : "#fef9c3",
+                  color: post.status === "publish" ? "#15803d" : "#854d0e",
+                }}>
+                  {post.status === "publish" ? "Objavljeno" : "Osnutek"}
+                </span>
+              } />
+            </Card>
 
-          <SpecificAcfCard type={type} acf={post.acf} />
-
-          <Card title="Navigacija">
-            <div className="flex flex-col gap-3">
-              <Link
-                href={`/cpt/${cpt.slug}`}
-                className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-4 py-3 font-medium text-white transition-colors hover:bg-blue-700"
-              >
-                ← Nazaj na {cpt.label}
-              </Link>
-
-              <Link
-                href="/dashboard"
-                className="inline-flex items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-3 font-medium text-gray-700 transition-colors hover:bg-gray-50"
-              >
-                Dashboard
-              </Link>
-            </div>
-          </Card>
-        </aside>
+            <Card title="Navigacija">
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "8px 0" }}>
+                <Link href={`/cpt/${cpt.slug}`}
+                  style={{ display: "block", textAlign: "center", padding: "10px 16px", borderRadius: 8, background: "#3b82f6", color: "#fff", textDecoration: "none", fontSize: 14, fontWeight: 600 }}>
+                  ← Nazaj na {cpt.label}
+                </Link>
+                <Link href="/admin"
+                  style={{ display: "block", textAlign: "center", padding: "10px 16px", borderRadius: 8, border: "1px solid #e5e7eb", background: "#fff", color: "#374151", textDecoration: "none", fontSize: 14, fontWeight: 500 }}>
+                  Dashboard
+                </Link>
+              </div>
+            </Card>
+          </div>
+        </div>
       </div>
-    </article>
+    </div>
   );
 }
