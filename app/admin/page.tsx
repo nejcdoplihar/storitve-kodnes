@@ -190,6 +190,28 @@ function StatCard({ label, value, loading, color, icon }: { label: string; value
   );
 }
 
+function LogoutButton() {
+  const handleLogout = async () => {
+    await fetch("/api/logout", { method: "POST" });
+    window.location.href = "/";
+  };
+
+  return (
+    <button onClick={handleLogout}
+      style={{
+        fontSize: 13, fontWeight: 500, cursor: "pointer",
+        padding: "6px 14px", borderRadius: 8,
+        border: "1px solid #334155", background: "transparent",
+        color: "#94a3b8",
+      }}
+      onMouseEnter={e => { e.currentTarget.style.background = "#1e293b"; e.currentTarget.style.color = "#fff"; }}
+      onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#94a3b8"; }}
+    >
+      Odjava
+    </button>
+  );
+}
+
 function DataTable({ cptSlug }: { cptSlug: string }) {
   const { posts, loading, error, refetch } = useWPData(cptSlug);
   const [search, setSearch] = useState("");
@@ -596,13 +618,8 @@ export default function Dashboard() {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             {WP_URL && (
-              <a href={WP_ADMIN_URL} target="_blank" rel="noreferrer"
-                style={{ fontSize: 13, color: "#3b82f6", textDecoration: "none", fontWeight: 500 }}>
-                WP Admin ↗
-              </a>
+              <a href={WP_ADMIN_URL} target="_blank" rel="noreferrer" style={{ fontSize: 13, color: "#3b82f6", textDecoration: "none", fontWeight: 500 }}>WP Admin ↗</a>
             )}
-            <LogoutButton />
-          </div>
             <div style={{ width: 34, height: 34, borderRadius: "50%", background: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 13, fontWeight: 700 }}>A</div>
           </div>
         </header>
