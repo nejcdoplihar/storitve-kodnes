@@ -87,14 +87,22 @@ export async function getCPTPostBySlug(
 /**
  * Pridobi vse sluge za generateStaticParams()
  */
-export async function getAllCPTSlugs(cptSlug: string): Promise<string[]> {
+export async function getCPTPostBySlug(
+  cptSlug: string,
+  slug: string
+): Promise<WPPost | null> {
+
+  if (!cptSlug || !slug) {
+    return null;
+  }
+
   const { data } = await wpFetch<WPPost[]>(cptSlug, {
-    per_page: 100,
+    slug,
+    _embed: true,
     status: "publish",
-    fields: "slug",
   });
 
-  return data.map((post) => post.slug);
+  return data[0] || null;
 }
 
 // ============================================================

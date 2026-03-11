@@ -219,7 +219,9 @@ export async function generateStaticParams() {
     try {
       const slugs = await getAllCPTSlugs(cpt.slug);
       slugs.forEach((slug) => {
-        paths.push({ type: cpt.slug, slug });
+        if (slug) {
+          paths.push({ type: cpt.slug, slug });
+        }
       });
     } catch {
       // CPT morda ne obstaja, preskoči
@@ -232,7 +234,7 @@ export async function generateStaticParams() {
 export async function generateMetadata({ params }: Props) {
   const { type, slug } = await params;
 
-  const post = await getCPTPostBySlug(type, slug);
+ const post = await getCPTPostBySlug(type, slug).catch(() => null);
 
   if (!post) return { title: "Ni najdeno" };
 
@@ -403,7 +405,7 @@ export default async function CPTSinglePage({ params }: Props) {
             </div>
           </Card>
 
-          <SpecificAcfCard type={params.type} acf={post.acf} />
+          <SpecificAcfCard type={type} acf={post.acf} />
 
           <Card title="Navigacija">
             <div className="flex flex-col gap-3">
