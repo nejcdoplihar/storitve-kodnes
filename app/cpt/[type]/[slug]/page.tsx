@@ -23,7 +23,7 @@ const STORITVE_LABELS: Record<string, string> = {
 };
 
 function getStoritevLabel(value: unknown) {
-  if (!value) return "—";
+  if (!value) return "Ni podatka";
 
   if (Array.isArray(value)) {
     return value
@@ -59,14 +59,145 @@ function isEmptyValue(value: unknown) {
   if (value === null || value === undefined) return true;
   if (typeof value === "string" && value.trim() === "") return true;
   if (Array.isArray(value) && value.length === 0) return true;
-  if (typeof value === "object" && value !== null && Object.keys(value).length === 0) return true;
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    Object.keys(value).length === 0
+  ) {
+    return true;
+  }
   return false;
 }
 
-function renderAcfValue(value: ACFValue): ReactNode {
-  if (isEmptyValue(value)) return "—";
+function isHtmlString(value: string) {
+  return /<\/?[a-z][\s\S]*>/i.test(value);
+}
 
-  if (typeof value === "string" || typeof value === "number") {
+function renderSimpleObject(obj: Record<string, unknown>): ReactNode {
+  const preferredKeys = [
+    "title",
+    "name",
+    "label",
+    "post_title",
+    "value",
+    "post_name",
+  ];
+
+  for (const key of preferredKeys) {
+    const val = obj[key];
+    if (typeof val === "string" || typeof val === "number") {
+      return String(val);
+    }
+  }
+
+  if (typeof obj.rendered === "string") {
+    return (
+      <div
+        className="prose prose-sm max-w-none"
+        dangerouslySetInnerHTML={{ __html: obj.rendered }}
+      />
+    );
+  }
+
+  if (typeof obj.url === "string") {
+    const title =
+      typeof obj.title === "string"
+        ? obj.title
+        : typeof obj.filename === "string"
+        ? obj.filename
+        : obj.url;
+
+    return (
+      <a
+        href={obj.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-blue-600 underline break-all hover:text-blue-700"
+      >
+        {title}
+      </a>
+    );
+  }
+
+  if (typeof obj.sizes === "object" && obj.sizes !== null) {
+    const sizes = obj.sizes as Record<string, unknown>;
+
+    const imgSrc =
+      (typeof sizes.medium === "string" && sizes.medium) ||
+      (typeof sizes.large === "string" && sizes.large) ||
+      (typeof obj.url === "string" && obj.url);
+
+    if (imgSrc) {
+      return (
+        <div className="space-y-3">
+          <img
+            src={imgSrc}
+            alt={typeof obj.alt === "string" ? obj.alt : "Slika"}
+            className="max-h-64 w-auto rounded-xl border border-gray-200"
+          />
+          {typeof obj.caption === "string" && stripHtml(obj.caption) && (
+            <p className="text-sm text-gray-500">{stripHtml(obj.caption)}</p>
+          )}
+        </div>
+      );
+    }
+  }
+
+  const entries = Object.entries(obj).filter(([, value]) => !isEmptyValue(value));
+
+  if (entries.length === 0) return "Ni podatka";
+
+  return (
+    <dl className="space-y-3">
+      {entries.slice(0, 8).map(([key, value]) => (
+        <div key={key}>
+          <dt className="mb-1 text-xs font-semibold uppercase tracking-wider text-gray-500">
+            {prettifyLabel(key)}
+          </dt>
+          <dd className="text-sm text-gray-900 break-words">
+            {renderAcfValue(value as ACFValue)}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function renderAcfValue(value: ACFValue): ReactNode {
+  if (isEmptyValue(value)) return "Ni podatka";
+
+  if (typeof value === "string") {
+    if (isHtmlString(value)) {
+      return (
+        <div
+          className="prose prose-sm max-w-none"
+          dangerouslySetInnerHTML={{ __html: value }}
+        />
+      );
+    }
+
+    if (
+      value.startsWith("http://") ||
+      value.startsWith("https://") ||
+      value.startsWith("mailto:") ||
+      value.startsWith("tel:")
+    ) {
+      return (
+        <a
+          href={value}
+          target={value.startsWith("http") ? "_blank" : undefined}
+          rel={value.startsWith("http") ? "noopener noreferrer" : undefined}
+          className="text-blue-600 underline break-all hover:text-blue-700"
+        >
+          {value}
+        </a>
+      );
+    }
+
+    return value;
+  }
+
+  if (typeof value === "number") {
     return String(value);
   }
 
@@ -75,32 +206,25 @@ function renderAcfValue(value: ACFValue): ReactNode {
   }
 
   if (Array.isArray(value)) {
+    const filtered = value.filter((item) => !isEmptyValue(item));
+    if (filtered.length === 0) return "Ni podatka";
+
     return (
-      <ul className="list-disc pl-5 space-y-1">
-        {value.map((item, index) => (
-          <li key={index}>{renderAcfValue(item)}</li>
+      <div className="space-y-2">
+        {filtered.map((item, index) => (
+          <div
+            key={index}
+            className="rounded-xl border border-gray-200 bg-white px-4 py-3"
+          >
+            {renderAcfValue(item)}
+          </div>
         ))}
-      </ul>
+      </div>
     );
   }
 
   if (typeof value === "object" && value !== null) {
-    const obj = value as Record<string, unknown>;
-
-    // Pogosti ACF/WP primeri
-    if (typeof obj.rendered === "string") return obj.rendered;
-    if (typeof obj.title === "string") return obj.title;
-    if (typeof obj.name === "string") return obj.name;
-    if (typeof obj.label === "string") return obj.label;
-    if (typeof obj.value === "string" || typeof obj.value === "number") {
-      return String(obj.value);
-    }
-
-    return (
-      <pre className="text-xs bg-gray-100 rounded-xl p-3 overflow-x-auto whitespace-pre-wrap break-words">
-        {JSON.stringify(obj, null, 2)}
-      </pre>
-    );
+    return renderSimpleObject(value as Record<string, unknown>);
   }
 
   return String(value);
@@ -108,8 +232,8 @@ function renderAcfValue(value: ACFValue): ReactNode {
 
 function Card({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="rounded-2xl border border-gray-200 bg-white shadow-sm p-6">
-      <h2 className="text-lg font-semibold text-gray-900 mb-4">{title}</h2>
+    <section className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+      <h2 className="mb-5 text-lg font-semibold text-gray-900">{title}</h2>
       {children}
     </section>
   );
@@ -117,11 +241,11 @@ function Card({ title, children }: { title: string; children: ReactNode }) {
 
 function DetailRow({ label, value }: { label: string; value: ReactNode }) {
   return (
-    <div className="py-3 border-b border-gray-100 last:border-b-0">
-      <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1">
+    <div className="grid grid-cols-1 gap-1 border-b border-gray-100 py-3 last:border-b-0 sm:grid-cols-[140px_1fr] sm:gap-4">
+      <div className="text-xs font-semibold uppercase tracking-wider text-gray-500">
         {label}
       </div>
-      <div className="text-sm text-gray-900 break-words">{value || "—"}</div>
+      <div className="text-sm text-gray-900 break-words">{value ?? "Ni podatka"}</div>
     </div>
   );
 }
@@ -139,11 +263,23 @@ function SpecificAcfCard({
     return (
       <Card title="Podatki naročnika">
         <div className="space-y-1">
-          <DetailRow label="Kontaktna oseba" value={String(acf.kontaktna_oseba || "—")} />
-          <DetailRow label="Email" value={String(acf.email || "—")} />
-          <DetailRow label="Telefon" value={String(acf.telefon || "—")} />
-          <DetailRow label="Podjetje" value={String(acf.podjetje || "—")} />
-          <DetailRow label="Naslov" value={String(acf.naslov || "—")} />
+          <DetailRow
+            label="Kontaktna oseba"
+            value={renderAcfValue(acf.kontaktna_oseba as ACFValue)}
+          />
+          <DetailRow label="Email" value={renderAcfValue(acf.email as ACFValue)} />
+          <DetailRow
+            label="Telefon"
+            value={renderAcfValue(acf.telefon as ACFValue)}
+          />
+          <DetailRow
+            label="Podjetje"
+            value={renderAcfValue(acf.podjetje as ACFValue)}
+          />
+          <DetailRow
+            label="Naslov"
+            value={renderAcfValue(acf.naslov as ACFValue)}
+          />
         </div>
       </Card>
     );
@@ -153,10 +289,16 @@ function SpecificAcfCard({
     return (
       <Card title="Podatki storitve">
         <div className="space-y-1">
-          <DetailRow label="Kategorija" value={String(acf.kategorija || "—")} />
-          <DetailRow label="Cena" value={String(acf.cena || "—")} />
-          <DetailRow label="Trajanje" value={String(acf.trajanje || "—")} />
-          <DetailRow label="Status storitve" value={String(acf.status_storitve || "—")} />
+          <DetailRow label="Kategorija" value={getStoritevLabel(acf.kategorija)} />
+          <DetailRow label="Cena" value={renderAcfValue(acf.cena as ACFValue)} />
+          <DetailRow
+            label="Trajanje"
+            value={renderAcfValue(acf.trajanje as ACFValue)}
+          />
+          <DetailRow
+            label="Status storitve"
+            value={renderAcfValue(acf.status_storitve as ACFValue)}
+          />
         </div>
       </Card>
     );
@@ -166,10 +308,19 @@ function SpecificAcfCard({
     return (
       <Card title="Podatki ponudbe">
         <div className="space-y-1">
-          <DetailRow label="Številka ponudbe" value={String(acf.stevilka_ponudbe || "—")} />
-          <DetailRow label="Znesek" value={String(acf.znesek || "—")} />
-          <DetailRow label="Status ponudbe" value={String(acf.status_ponudbe || "—")} />
-          <DetailRow label="Veljavnost" value={String(acf.veljavnost || "—")} />
+          <DetailRow
+            label="Številka ponudbe"
+            value={renderAcfValue(acf.stevilka_ponudbe as ACFValue)}
+          />
+          <DetailRow label="Znesek" value={renderAcfValue(acf.znesek as ACFValue)} />
+          <DetailRow
+            label="Status ponudbe"
+            value={renderAcfValue(acf.status_ponudbe as ACFValue)}
+          />
+          <DetailRow
+            label="Veljavnost"
+            value={renderAcfValue(acf.veljavnost as ACFValue)}
+          />
         </div>
       </Card>
     );
@@ -187,18 +338,21 @@ function AdditionalAcfGrid({
 }) {
   if (!acf) return null;
 
-  const entries = Object.entries(acf).filter(
-    ([key, value]) => !excludedKeys.includes(key) && !isEmptyValue(value)
-  );
+  const entries = Object.entries(acf)
+    .filter(([key, value]) => !excludedKeys.includes(key) && !isEmptyValue(value))
+    .sort(([a], [b]) => a.localeCompare(b));
 
   if (entries.length === 0) return null;
 
   return (
     <Card title="Dodatne informacije">
-      <dl className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <dl className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {entries.map(([key, value]) => (
-          <div key={key} className="rounded-xl border border-gray-100 bg-gray-50 p-4">
-            <dt className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">
+          <div
+            key={key}
+            className="rounded-xl border border-gray-100 bg-gray-50 p-4"
+          >
+            <dt className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
               {prettifyLabel(key)}
             </dt>
             <dd className="text-sm text-gray-900 break-words">
@@ -234,7 +388,7 @@ export async function generateStaticParams() {
 export async function generateMetadata({ params }: Props) {
   const { type, slug } = await params;
 
- const post = await getCPTPostBySlug(type, slug).catch(() => null);
+  const post = await getCPTPostBySlug(type, slug).catch(() => null);
 
   if (!post) return { title: "Ni najdeno" };
 
@@ -242,13 +396,14 @@ export async function generateMetadata({ params }: Props) {
   const cleanTitle = stripHtml(post.title?.rendered) || "Podrobnosti";
   const cleanExcerpt = stripHtml(post.excerpt?.rendered);
   const cleanContent = stripHtml(post.content?.rendered);
+  const description = (cleanExcerpt || cleanContent || "").substring(0, 160);
 
   return {
     title: cleanTitle,
-    description: (cleanExcerpt || cleanContent || "").substring(0, 160),
+    description,
     openGraph: {
       title: cleanTitle,
-      description: (cleanExcerpt || cleanContent || "").substring(0, 160),
+      description,
       images: image ? [{ url: image }] : [],
       type: "article",
     },
@@ -261,13 +416,14 @@ export default async function CPTSinglePage({ params }: Props) {
   const cpt = CPT_CONFIGS.find((c) => c.slug === type);
   if (!cpt) notFound();
 
-  const post = await getCPTPostBySlug(type, slug);
+  const post = await getCPTPostBySlug(type, slug).catch(() => null);
   if (!post) notFound();
 
   const imageUrl = getFeaturedImageUrl(post, "full");
   const author = post._embedded?.author?.[0];
   const terms = post._embedded?.["wp:term"]?.flat() || [];
   const plainExcerpt = stripHtml(post.excerpt?.rendered);
+  const hasMainContent = Boolean(stripHtml(post.content?.rendered));
 
   const excludedKeys = [
     "kontaktna_oseba",
@@ -286,30 +442,28 @@ export default async function CPTSinglePage({ params }: Props) {
   ];
 
   return (
-    <article className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Breadcrumb */}
-      <nav className="flex flex-wrap items-center gap-2 text-sm text-gray-500 mb-6">
-        <Link href="/" className="hover:text-blue-600 transition-colors">
+    <article className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <nav className="mb-6 flex flex-wrap items-center gap-2 text-sm text-gray-500">
+        <Link href="/" className="transition-colors hover:text-blue-600">
           Domov
         </Link>
         <span>›</span>
         <Link
           href={`/cpt/${cpt.slug}`}
-          className="hover:text-blue-600 transition-colors"
+          className="transition-colors hover:text-blue-600"
         >
           {cpt.icon} {cpt.label}
         </Link>
         <span>›</span>
         <span
-          className="text-gray-900 truncate max-w-xs"
+          className="max-w-xs truncate text-gray-900"
           dangerouslySetInnerHTML={{ __html: post.title.rendered }}
         />
       </nav>
 
-      {/* Header */}
       <header className="mb-8">
-        <div className="flex flex-wrap items-center gap-3 mb-4">
-          <span className="inline-flex items-center rounded-full bg-blue-50 text-blue-700 px-3 py-1 text-xs font-semibold">
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
             {cpt.icon} {cpt.label}
           </span>
 
@@ -325,17 +479,17 @@ export default async function CPTSinglePage({ params }: Props) {
         </div>
 
         <h1
-          className="text-3xl md:text-5xl font-bold text-gray-900 leading-tight mb-4"
+          className="mb-4 text-3xl font-bold leading-tight text-gray-900 md:text-5xl"
           dangerouslySetInnerHTML={{ __html: post.title.rendered }}
         />
 
         {plainExcerpt && (
-          <p className="max-w-3xl text-lg text-gray-600 leading-relaxed">
+          <p className="max-w-3xl text-lg leading-relaxed text-gray-600">
             {plainExcerpt}
           </p>
         )}
 
-        <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500 mt-6">
+        <div className="mt-6 flex flex-wrap items-center gap-4 text-sm text-gray-500">
           <span>📅 {formatDate(post.date)}</span>
 
           {author && (
@@ -344,7 +498,7 @@ export default async function CPTSinglePage({ params }: Props) {
                 <img
                   src={author.avatar_urls["48"]}
                   alt={author.name}
-                  className="w-6 h-6 rounded-full"
+                  className="h-6 w-6 rounded-full"
                 />
               )}
               {author.name}
@@ -356,7 +510,7 @@ export default async function CPTSinglePage({ params }: Props) {
               {terms.map((term) => (
                 <span
                   key={`${term.taxonomy}-${term.id}`}
-                  className="bg-gray-100 text-gray-700 px-2.5 py-1 rounded-full text-xs"
+                  className="rounded-full bg-gray-100 px-2.5 py-1 text-xs text-gray-700"
                 >
                   {term.name}
                 </span>
@@ -366,27 +520,31 @@ export default async function CPTSinglePage({ params }: Props) {
         </div>
       </header>
 
-      {/* Featured image */}
       {imageUrl && (
         <div className="mb-10 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
           <img
             src={imageUrl}
             alt={stripHtml(post.title.rendered)}
-            className="w-full h-auto object-cover"
+            className="max-h-[520px] w-full object-cover"
           />
         </div>
       )}
 
-      {/* Main layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_360px] gap-8">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,2fr)_360px]">
         <div className="space-y-8">
           <Card title="Vsebina">
-            <div
-              className="wp-content"
-              dangerouslySetInnerHTML={{
-                __html: post.content?.rendered || "<p>Ni vsebine.</p>",
-              }}
-            />
+            {hasMainContent ? (
+              <div
+                className="wp-content prose max-w-none prose-headings:scroll-mt-24"
+                dangerouslySetInnerHTML={{
+                  __html: post.content?.rendered || "",
+                }}
+              />
+            ) : (
+              <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-sm text-gray-500">
+                Za ta vnos ni dodane vsebine.
+              </div>
+            )}
           </Card>
 
           <AdditionalAcfGrid acf={post.acf} excludedKeys={excludedKeys} />
@@ -411,14 +569,14 @@ export default async function CPTSinglePage({ params }: Props) {
             <div className="flex flex-col gap-3">
               <Link
                 href={`/cpt/${cpt.slug}`}
-                className="inline-flex items-center justify-center rounded-xl bg-blue-600 text-white px-4 py-3 font-medium hover:bg-blue-700 transition-colors"
+                className="inline-flex items-center justify-center rounded-xl bg-blue-600 px-4 py-3 font-medium text-white transition-colors hover:bg-blue-700"
               >
                 ← Nazaj na {cpt.label}
               </Link>
 
               <Link
                 href="/dashboard"
-                className="inline-flex items-center justify-center rounded-xl border border-gray-300 bg-white text-gray-700 px-4 py-3 font-medium hover:bg-gray-50 transition-colors"
+                className="inline-flex items-center justify-center rounded-xl border border-gray-300 bg-white px-4 py-3 font-medium text-gray-700 transition-colors hover:bg-gray-50"
               >
                 Dashboard
               </Link>
