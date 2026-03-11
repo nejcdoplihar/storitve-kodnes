@@ -19,13 +19,23 @@ const fetchOptions: RequestInit = {
 // 🔧 POMOŽNE FUNKCIJE
 // ============================================================
 
-function buildQueryString(params: Record<string, string | number | boolean>): string {
+function buildQueryString(
+  params: Record<string, string | number | boolean | undefined>
+): string {
   return new URLSearchParams(
-    Object.entries(params).reduce((acc, [k, v]) => ({ ...acc, [k]: String(v) }), {})
+    Object.entries(params).reduce<Record<string, string>>((acc, [key, value]) => {
+      if (value !== undefined) {
+        acc[key] = String(value);
+      }
+      return acc;
+    }, {})
   ).toString();
 }
 
-async function wpFetch<T>(endpoint: string, params: Record<string, string | number | boolean> = {}): Promise<{ data: T; headers: Headers }> {
+async function wpFetch<T>(
+  endpoint: string,
+  params: Record<string, string | number | boolean | undefined> = {}
+): Promise<{ data: T; headers: Headers }> {
   const query = buildQueryString(params);
   const url = `${API_BASE}/${endpoint}${query ? `?${query}` : ""}`;
 
@@ -75,6 +85,10 @@ export async function getCPTPostBySlug(
   cptSlug: string,
   slug: string
 ): Promise<WPPost | null> {
+  if (!cptSlug || !slug) {
+    return null;
+  }
+
   const { data } = await wpFetch<WPPost[]>(cptSlug, {
     slug,
     _embed: true,
@@ -87,22 +101,20 @@ export async function getCPTPostBySlug(
 /**
  * Pridobi vse sluge za generateStaticParams()
  */
-export async function getCPTPostBySlug(
-  cptSlug: string,
-  slug: string
-): Promise<WPPost | null> {
-
-  if (!cptSlug || !slug) {
-    return null;
+export async function getAllCPTSlugs(cptSlug: string): Promise<string[]> {
+  if (!cptSlug) {
+    return [];
   }
 
-  const { data } = await wpFetch<WPPost[]>(cptSlug, {
-    slug,
-    _embed: true,
+  const { data } = await wpFetch<Array<Pick<WPPost, "slug">>>(cptSlug, {
+    per_page: 100,
     status: "publish",
+    _fields: "slug",
   });
 
-  return data[0] || null;
+  return data
+    .map((post) => post.slug)
+    .filter((slug): slug is string => Boolean(slug));
 }
 
 // ============================================================
@@ -125,9 +137,14 @@ export async function getPosts(page = 1, perPage = 10): Promise<WPApiResponse<WP
 }
 
 export async function getPostBySlug(slug: string): Promise<WPPost | null> {
+  if (!slug) {
+    return null;
+  }
+
   const { data } = await wpFetch<WPPost[]>("posts", {
     slug,
     _embed: true,
+    status: "publish",
   });
 
   return data[0] || null;
@@ -138,9 +155,14 @@ export async function getPostBySlug(slug: string): Promise<WPPost | null> {
 // ============================================================
 
 export async function getPageBySlug(slug: string): Promise<WPPage | null> {
+  if (!slug) {
+    return null;
+  }
+
   const { data } = await wpFetch<WPPage[]>("pages", {
     slug,
     _embed: true,
+    status: "publish",
   });
 
   return data[0] || null;
