@@ -160,6 +160,28 @@ function useStranke() {
   return { stranke, loading, error, refetch: fetchData };
 }
 
+function LogoutButton() {
+  const handleLogout = async () => {
+    await fetch("/api/logout", { method: "POST" });
+    window.location.href = "/";
+  };
+
+  return (
+    <button onClick={handleLogout}
+      style={{
+        fontSize: 13, fontWeight: 500, cursor: "pointer",
+        padding: "6px 14px", borderRadius: 8,
+        border: "1px solid #334155", background: "transparent",
+        color: "#94a3b8",
+      }}
+      onMouseEnter={e => { e.currentTarget.style.background = "#1e293b"; e.currentTarget.style.color = "#fff"; }}
+      onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#94a3b8"; }}
+    >
+      Odjava
+    </button>
+  );
+}
+
 // ============================================================
 // COMPONENTS (originalni)
 // ============================================================
