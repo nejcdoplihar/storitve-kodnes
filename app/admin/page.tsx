@@ -190,28 +190,6 @@ function StatCard({ label, value, loading, color, icon }: { label: string; value
   );
 }
 
-function LogoutButton() {
-  const handleLogout = async () => {
-    await fetch("/api/logout", { method: "POST" });
-    window.location.href = "/";
-  };
-
-  return (
-    <button onClick={handleLogout}
-      style={{
-        fontSize: 13, fontWeight: 500, cursor: "pointer",
-        padding: "6px 14px", borderRadius: 8,
-        border: "1px solid #334155", background: "transparent",
-        color: "#94a3b8",
-      }}
-      onMouseEnter={e => { e.currentTarget.style.background = "#1e293b"; e.currentTarget.style.color = "#fff"; }}
-      onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#94a3b8"; }}
-    >
-      Odjava
-    </button>
-  );
-}
-
 function DataTable({ cptSlug }: { cptSlug: string }) {
   const { posts, loading, error, refetch } = useWPData(cptSlug);
   const [search, setSearch] = useState("");
