@@ -596,8 +596,13 @@ export default function Dashboard() {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             {WP_URL && (
-              <a href={WP_ADMIN_URL} target="_blank" rel="noreferrer" style={{ fontSize: 13, color: "#3b82f6", textDecoration: "none", fontWeight: 500 }}>WP Admin ↗</a>
+              <a href={WP_ADMIN_URL} target="_blank" rel="noreferrer"
+                style={{ fontSize: 13, color: "#3b82f6", textDecoration: "none", fontWeight: 500 }}>
+                WP Admin ↗
+              </a>
             )}
+            <LogoutButton />
+          </div>
             <div style={{ width: 34, height: 34, borderRadius: "50%", background: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 13, fontWeight: 700 }}>A</div>
           </div>
         </header>
