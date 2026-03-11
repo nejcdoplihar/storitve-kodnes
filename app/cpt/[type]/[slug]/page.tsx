@@ -248,11 +248,6 @@ export async function generateMetadata({ params }: Props) {
       images: image ? [{ url: image }] : [],
       type: "article",
     },
-    other: {
-      ...(post.meta?.["_yoast_wpseo_title"] && {
-        title: post.meta["_yoast_wpseo_title"] as string,
-      }),
-    },
   };
 }
 
