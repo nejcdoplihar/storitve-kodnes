@@ -20,19 +20,27 @@ export async function POST(req: NextRequest) {
 
   const { username, password, rememberMe } = await req.json();
 
-  const validUser = process.env.DASHBOARD_USER || "admin";
-  const validPass = process.env.DASHBOARD_PASSWORD || "geslo";
-  const validUser2 = process.env.DASHBOARD_USER2 || "";
-  const validPass2 = process.env.DASHBOARD_PASSWORD2 || "";
+  const inputUser = String(username || "").trim();
+  const inputPass = String(password || "").trim();
 
+  const validUser = String(process.env.DASHBOARD_USER || "admin").trim();
+  const validPass = String(process.env.DASHBOARD_PASSWORD || "geslo").trim();
+  const validUser2 = String(process.env.DASHBOARD_USER2 || "").trim();
+  const validPass2 = String(process.env.DASHBOARD_PASSWORD2 || "").trim();
+  console.log({
+    validUser,
+    validUser2,
+    hasPass1: !!validPass,
+    hasPass2: !!validPass2,
+  });
   const ok =
-    (username === validUser && password === validPass) ||
-    (validUser2 && username === validUser2 && password === validPass2);
+    (inputUser === validUser && inputPass === validPass) ||
+    (validUser2 && inputUser === validUser2 && inputPass === validPass2);
 
   if (ok) {
     attempts.delete(ip);
     const cookieStore = await cookies();
-    cookieStore.set("dashboard_auth", username, {
+    cookieStore.set("dashboard_auth", inputUser, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",

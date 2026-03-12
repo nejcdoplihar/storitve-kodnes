@@ -115,7 +115,15 @@ type Stranka = Post & {
   };
 };
 
-type ActiveView = "dashboard" | "narocnik" | "ponudba" | "stranka" | "statistika" | "finance" | "opravila";
+type ActiveView =
+  | "dashboard"
+  | "narocnik"
+  | "ponudba"
+  | "stranka"
+  | "statistika"
+  | "finance"
+  | "opravila"
+  | "profil";
 
 // ============================================================
 // STORITVE LABELS
@@ -254,18 +262,52 @@ function useStranke() {
   const [error, setError] = useState<string | null>(null);
 
   const fetchData = async () => {
-    if (!WP_URL) { setLoading(false); return; }
-    setLoading(true); setError(null);
+    if (!WP_URL) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
     try {
-      const res = await fetch(`${WP_URL.replace(/\/$/, "")}/wp-json/wp/v2/stranka?per_page=20&_embed=true&status=publish`, { cache: "no-store" });
-      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-      const data = await res.json();
-      setStranke(Array.isArray(data) ? data : []);
-    } catch (e) { setError(e instanceof Error ? e.message : "Napaka"); }
-    finally { setLoading(false); }
+      const baseUrl = `${WP_URL.replace(/\/$/, "")}/wp-json/wp/v2/stranka`;
+      let currentPage = 1;
+      let totalPages = 1;
+      let allStranke: Stranka[] = [];
+
+      do {
+        const res = await fetch(
+          `${baseUrl}?per_page=100&page=${currentPage}&_embed=true&status=publish`,
+          { cache: "no-store" }
+        );
+
+        if (!res.ok) {
+          throw new Error(`${res.status} ${res.statusText}`);
+        }
+
+        const data = await res.json();
+        totalPages = Number(res.headers.get("X-WP-TotalPages") || 1);
+
+        if (Array.isArray(data)) {
+          allStranke = [...allStranke, ...data];
+        }
+
+        currentPage++;
+      } while (currentPage <= totalPages);
+
+      setStranke(allStranke);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Napaka");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    fetchData();
+  }, []);
+
   return { stranke, loading, error, refetch: fetchData };
 }
 
@@ -1195,9 +1237,9 @@ function DashboardOverview() {
   return (
     <div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 28 }}>
-        <StatCard label="Naročniki" value={narocniki.posts.length} loading={narocniki.loading} color="#00a4a7" icon={icons.users} />
-        <StatCard label="Ponudbe" value={ponudbe.posts.length} loading={ponudbe.loading} color="#10b981" icon={icons.file} />
-        <StatCard label="Stranke" value={stranke.posts.length} loading={stranke.loading} color="#f59e0b" icon={icons.building} />
+       <StatCard label="Naročniki" value={narocniki.total} loading={narocniki.loading} color="#00a4a7" icon={icons.users} />
+       <StatCard label="Ponudbe" value={ponudbe.total} loading={ponudbe.loading} color="#10b981" icon={icons.file} />
+       <StatCard label="Stranke" value={stranke.total} loading={stranke.loading} color="#f59e0b" icon={icons.building} />
       </div>
 
       <StrankeTekoMesec stranke={strankeDetailed} loading={strankeLoading} />
@@ -1303,6 +1345,163 @@ function useCurrentUser() {
   return username;
 }
 
+function UserMenu() {
+  const [user, setUser] = useState("");
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    fetch("/api/me")
+      .then((res) => res.json())
+      .then((data) => setUser(data.username || ""))
+      .catch(() => setUser(""));
+  }, []);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const displayName =
+    user === "nejc"
+      ? "Nejc Doplhar"
+      : user === "klemen"
+      ? "Klemen"
+      : user || "Uporabnik";
+
+  const initials = displayName
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+  const handleLogout = async () => {
+    await fetch("/api/logout", { method: "POST" });
+    window.location.href = "/";
+  };
+
+  return (
+    <div ref={menuRef} style={{ position: "relative" }}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          padding: "8px 12px",
+          borderRadius: 14,
+          background: "#fff",
+          border: 0,
+          cursor: "pointer",
+        }}
+      >
+        <div
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: "50%",
+            background: BRAND,
+            color: "#fff",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 13,
+            fontWeight: 700,
+            flexShrink: 0,
+          }}
+        >
+          {initials}
+        </div>
+
+        <div style={{ textAlign: "left", lineHeight: 1.1 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#111" }}>
+            {displayName}
+          </div>
+          <div style={{ fontSize: 11, color: "#888" }}>
+            Prijavljen uporabnik
+          </div>
+        </div>
+
+        <div style={{ color: "#888", display: "flex", alignItems: "center" }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </div>
+      </button>
+
+      {open && (
+        <div
+          style={{
+            position: "absolute",
+            top: "calc(100% + 8px)",
+            right: 0,
+            width: 220,
+            background: "#fff",
+            border: "1px solid #e5e7eb",
+            borderRadius: 12,
+            boxShadow: "0 12px 32px rgba(0,0,0,0.12)",
+            overflow: "hidden",
+            zIndex: 2000,
+          }}
+        >
+        <a
+            href="/admin?view=profil"
+            style={menuItemStyle}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "#f8fafc")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}
+          >
+            Nastavitve profila
+          </a>
+
+          <a
+            href={WP_ADMIN_URL}
+            target="_blank"
+            rel="noreferrer"
+            style={menuItemStyle}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "#f8fafc")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}
+          >
+            WP admin
+          </a>
+
+          <button
+            onClick={handleLogout}
+                        style={{
+              ...menuItemStyle,
+              width: "100%",
+              textAlign: "left",
+              background: "#fff",
+              border: "none",
+              borderBottom: "none",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "#fef2f2")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}
+          >
+            Odjava
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const menuItemStyle: React.CSSProperties = {
+  display: "block",
+  padding: "12px 14px",
+  fontSize: 13,
+  color: "#111",
+  textDecoration: "none",
+  cursor: "pointer",
+  borderBottom: "1px solid #f3f4f6",
+};
+
 // Format ACF date YYYYMMDD → sl-SI
 function fmtDate(d: string): string {
   if (!d || d.length !== 8) return d || "—";
@@ -1365,9 +1564,33 @@ function DodajOpraviloModal({
   };
 
   const inputStyle: React.CSSProperties = {
-    width: "100%", padding: "9px 12px", borderRadius: 8, border: "1px solid #e5e7eb",
-    fontSize: 14, outline: "none", boxSizing: "border-box", background: "#fff",
+    width: "100%",
+    padding: "10px 12px",
+    borderRadius: 10,
+    border: "1px solid #e5e7eb",
+    marginTop: 6,
+    fontSize: 14,
   };
+
+  const primaryButton: React.CSSProperties = {
+    padding: "10px 18px",
+    borderRadius: 10,
+    border: "none",
+    background: BRAND,
+    color: "#fff",
+    fontWeight: 600,
+    cursor: "pointer",
+  };
+
+  const secondaryButton: React.CSSProperties = {
+    padding: "10px 18px",
+    borderRadius: 10,
+    border: "1px solid #e5e7eb",
+    background: "#fff",
+    fontWeight: 600,
+    cursor: "pointer",
+  };
+
   const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 5 };
 
   return (
@@ -1385,7 +1608,7 @@ function DodajOpraviloModal({
           {/* Stranka */}
           <div>
             <label style={labelStyle}>Stranka *</label>
-            <select value={form.stranka_id} onChange={e => set("stranka_id", e.target.value)} style={inputStyle}>
+            <select value={form.stranka_id} onChange={e => set("stranka_id", e.target.value)} style={profileInputStyle}>
               <option value="">— Izberi stranko —</option>
               {stranke.map(s => (
                 <option key={s.id} value={s.id}>{s.title.rendered}</option>
@@ -1399,7 +1622,7 @@ function DodajOpraviloModal({
               <label style={labelStyle}>Datum opravila</label>
               <input type="date" value={`${form.datum_opravila.slice(0,4)}-${form.datum_opravila.slice(4,6)}-${form.datum_opravila.slice(6,8)}`}
                 onChange={e => set("datum_opravila", e.target.value.replace(/-/g, ""))}
-                style={inputStyle} />
+                style={profileInputStyle} />
             </div>
             <div>
               <label style={labelStyle}>Uporabnik</label>
@@ -1411,7 +1634,7 @@ function DodajOpraviloModal({
           <div>
             <label style={labelStyle}>Naslov opravila *</label>
             <input value={form.naslov_opravila} onChange={e => set("naslov_opravila", e.target.value)}
-              placeholder="npr. Popravek kontaktnega obrazca" style={inputStyle} />
+              placeholder="npr. Popravek kontaktnega obrazca" style={profileInputStyle} />
           </div>
 
           {/* Opis */}
@@ -1426,7 +1649,7 @@ function DodajOpraviloModal({
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
               <label style={labelStyle}>Porabljen čas</label>
-              <select value={form.cas_ure} onChange={e => set("cas_ure", e.target.value)} style={inputStyle}>
+              <select value={form.cas_ure} onChange={e => set("cas_ure", e.target.value)} style={profileInputStyle}>
                 {CAS_OPTIONS.map(v => (
                   <option key={v} value={v}>{v} {v === 1 ? "ura" : v < 5 ? "ure" : "ur"}</option>
                 ))}
@@ -1680,6 +1903,448 @@ function OpravilaView() {
   );
 }
 
+function SidebarUser() {
+  const [user, setUser] = useState("");
+
+  useEffect(() => {
+    fetch("/api/me")
+      .then((r) => r.json())
+      .then((d) => setUser(d.username || ""));
+  }, []);
+
+  const display =
+    user === "nejc"
+      ? "Nejc Doplhar"
+      : user === "klemen"
+      ? "Klemen"
+      : user || "Uporabnik";
+
+  const initials = display
+    .split(" ")
+    .map((p) => p[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+  return (
+    <div
+      style={{
+        padding: "16px 18px",
+        borderBottom: "1px solid #1e293b",
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+      }}
+    >
+      <div
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: "50%",
+          background: BRAND,
+          color: "#fff",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 13,
+          fontWeight: 700,
+          flexShrink: 0,
+        }}
+      >
+        {initials}
+      </div>
+
+      <div>
+        <div style={{ color: "#fff", fontSize: 13, fontWeight: 600 }}>
+          {display}
+        </div>
+        <div style={{ color: "#64748b", fontSize: 11 }}>
+          prijavljen uporabnik
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProfilView() {
+  const [username, setUsername] = useState("");
+  const [profile, setProfile] = useState({
+    fullName: "",
+    email: "",
+    position: "",
+    avatarUrl: "",
+  });
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [repeatPassword, setRepeatPassword] = useState("");
+
+  const [passwordMessage, setPasswordMessage] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+
+  useEffect(() => {
+    fetch("/api/profile")
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Napaka");
+
+        setUsername(data.username);
+        setProfile(data.profile);
+      })
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const initials = (profile.fullName || username || "U")
+    .split(" ")
+    .map((p: string) => p[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+  async function saveProfile() {
+    setSaving(true);
+    setMessage("");
+    setError("");
+
+    try {
+      const res = await fetch("/api/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(profile),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      setMessage("Profil uspešno shranjen.");
+    } catch (e: any) {
+      setError(e.message);
+    }
+
+    setSaving(false);
+  }
+
+  async function changePassword() {
+    setPasswordError("");
+    setPasswordMessage("");
+
+    if (newPassword !== repeatPassword) {
+      setPasswordError("Gesli se ne ujemata.");
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/profile/password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          currentPassword,
+          newPassword,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      setPasswordMessage("Geslo uspešno spremenjeno.");
+      setCurrentPassword("");
+      setNewPassword("");
+      setRepeatPassword("");
+    } catch (e: any) {
+      setPasswordError(e.message);
+    }
+  }
+
+  if (loading) {
+    return <div style={{ padding: 20 }}>Nalaganje profila...</div>;
+  }
+
+  return (
+  <div style={{ maxWidth: 1100 }}>
+    <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", gap: 20 }}>
+      
+      {/* LEVI PROFIL */}
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: 14,
+          border: "1px solid #f0f0f0",
+          boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+          padding: 24,
+          textAlign: "center",
+        }}
+      >
+       {profile.avatarUrl ? (
+      
+      <img
+        src={profile.avatarUrl}
+        alt={profile.fullName || username}
+        style={{
+          width: 96,
+          height: 96,
+          borderRadius: "50%",
+          objectFit: "cover",
+          display: "block",
+          margin: "0 auto 16px",
+        }}
+      />
+    ) : (
+      <div
+        style={{
+          width: 96,
+          height: 96,
+          borderRadius: "50%",
+          background: BRAND,
+          color: "#fff",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 30,
+          fontWeight: 700,
+          margin: "0 auto 16px",
+        }}
+      >
+        {initials}
+      </div>
+    )}
+
+        <div style={{ fontWeight: 700, fontSize: 18 }}>
+          {profile.fullName || username}
+        </div>
+
+        <div style={{ fontSize: 13, color: "#888", marginTop: 4 }}>
+          @{username}
+        </div>
+
+        <div style={{ fontSize: 13, color: "#666", marginTop: 10 }}>
+          {profile.position || "—"}
+        </div>
+      </div>
+     
+
+      {/* DESNI DEL */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+        
+        {/* OSNOVNI PODATKI */}
+        <div
+          style={{
+            background: "#fff",
+            borderRadius: 14,
+            border: "1px solid #f0f0f0",
+            boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+            padding: 24,
+          }}
+        >
+          <h2 style={{ fontSize: 18, marginBottom: 20 }}>Osnovni podatki</h2>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            
+            <div style={{ gridColumn: "1 / -1" }}>
+              <label>Ime in priimek</label>
+              <input
+                value={profile.fullName}
+                onChange={(e) =>
+                  setProfile({ ...profile, fullName: e.target.value })
+                }
+                style={profileInputStyle}
+              />
+            </div>
+
+            <div>
+              <label>Email</label>
+              <input
+                value={profile.email}
+                onChange={(e) =>
+                  setProfile({ ...profile, email: e.target.value })
+                }
+                style={profileInputStyle}
+              />
+            </div>
+
+            <div>
+              <label>Pozicija</label>
+              <input
+                value={profile.position}
+                onChange={(e) =>
+                  setProfile({ ...profile, position: e.target.value })
+                }
+                style={profileInputStyle}
+              />
+            </div>
+
+            <div style={{ gridColumn: "1 / -1" }}>
+              <label>Prikazna slika (URL)</label>
+              <input
+                value={profile.avatarUrl}
+                onChange={(e) =>
+                  setProfile({ ...profile, avatarUrl: e.target.value })
+                }
+                style={profileInputStyle}
+              />
+            </div>
+          </div>
+
+          {message && <p style={{ color: "green", marginTop: 10 }}>{message}</p>}
+          {error && <p style={{ color: "red", marginTop: 10 }}>{error}</p>}
+
+          <div style={{ textAlign: "right", marginTop: 20 }}>
+            <button onClick={saveProfile} style={primaryButton}>
+              {saving ? "Shranjujem..." : "Shrani podatke"}
+            </button>
+          </div>
+        </div>
+
+        {/* SPREMEMBA GESLA */}
+        <div
+          style={{
+            background: "#fff",
+            borderRadius: 14,
+            border: "1px solid #f0f0f0",
+            boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+            padding: 24,
+          }}
+        >
+          <h2 style={{ fontSize: 18, marginBottom: 20 }}>Sprememba gesla</h2>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            
+            <div style={{ gridColumn: "1 / -1" }}>
+              <label>Trenutno geslo</label>
+              <input
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                style={profileInputStyle}
+              />
+            </div>
+
+            <div>
+              <label>Novo geslo</label>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                style={profileInputStyle}
+              />
+            </div>
+
+            <div>
+              <label>Ponovi novo geslo</label>
+              <input
+                type="password"
+                value={repeatPassword}
+                onChange={(e) => setRepeatPassword(e.target.value)}
+                style={profileInputStyle}
+              />
+            </div>
+          </div>
+
+          {passwordMessage && (
+            <p style={{ color: "green", marginTop: 10 }}>{passwordMessage}</p>
+          )}
+          {passwordError && (
+            <p style={{ color: "red", marginTop: 10 }}>{passwordError}</p>
+          )}
+
+          <div style={{ textAlign: "right", marginTop: 20 }}>
+            <button onClick={changePassword} style={secondaryButton}>
+              Spremeni geslo
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  );
+}
+
+const profileInputStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "10px 12px",
+  borderRadius: 10,
+  border: "1px solid #e5e7eb",
+  marginTop: 6,
+  fontSize: 14,
+  outline: "none",
+  boxSizing: "border-box",
+  background: "#fff",
+};
+
+const primaryButton: React.CSSProperties = {
+  padding: "10px 18px",
+  borderRadius: 10,
+  border: "none",
+  background: BRAND,
+  color: "#fff",
+  fontWeight: 600,
+  cursor: "pointer",
+};
+
+const secondaryButton: React.CSSProperties = {
+  padding: "10px 18px",
+  borderRadius: 10,
+  border: "1px solid #e5e7eb",
+  background: "#fff",
+  color: "#111",
+  fontWeight: 600,
+  cursor: "pointer",
+};
+
+function SidebarProfileButton({
+  sidebarOpen,
+  active,
+  onClick,
+}: {
+  sidebarOpen: boolean;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={!sidebarOpen ? "Profil" : undefined}
+      style={{
+        width: "100%",
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        padding: "10px",
+        borderRadius: 8,
+        border: "none",
+        cursor: "pointer",
+        background: active ? BRAND : "transparent",
+        color: active ? "#fff" : "#94a3b8",
+        fontSize: 14,
+        fontWeight: active ? 600 : 400,
+        textAlign: "left",
+      }}
+      onMouseEnter={(e) => {
+        if (!active) {
+          e.currentTarget.style.background = "#1e293b";
+          e.currentTarget.style.color = "#fff";
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (!active) {
+          e.currentTarget.style.background = "transparent";
+          e.currentTarget.style.color = "#94a3b8";
+        }
+      }}
+    >
+      <span style={{ flexShrink: 0 }}>{icons.users}</span>
+      {sidebarOpen && <span>Profil</span>}
+    </button>
+  );
+}
+
 
 // ============================================================
 // MAIN DASHBOARD
@@ -1689,6 +2354,24 @@ export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const { countdown, resetTimer, logout } = useSessionTimeout();
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const view = params.get("view");
+
+    if (
+      view === "dashboard" ||
+      view === "narocnik" ||
+      view === "ponudba" ||
+      view === "stranka" ||
+      view === "opravila" ||
+      view === "statistika" ||
+      view === "finance" ||
+      view === "profil"
+    ) {
+      setActiveView(view);
+    }
+  }, []);
+  
   const navItems = [
     { id: "dashboard" as ActiveView, label: "Pregled", icon: icons.dashboard },
     { id: "narocnik" as ActiveView, label: "Naročniki", icon: icons.users },
@@ -1701,7 +2384,7 @@ export default function Dashboard() {
 
   const titles: Record<ActiveView, string> = {
     dashboard: "Pregled", narocnik: "Naročniki", ponudba: "Ponudbe",
-    stranka: "Stranke", opravila: "Opravila", statistika: "Statistika", finance: "Finance",
+    stranka: "Stranke", opravila: "Opravila", statistika: "Statistika", finance: "Finance", profil: "Nastavitve profila",
   };
 
   return (
@@ -1710,22 +2393,25 @@ export default function Dashboard() {
       {countdown !== null && (
         <SessionWarning countdown={countdown} onStay={resetTimer} onLogout={logout} />
       )}
-      <aside style={{ width: sidebarOpen ? 240 : 68, minWidth: sidebarOpen ? 240 : 68, background: "#0f172a", display: "flex", flexDirection: "column", transition: "width 0.2s ease, min-width 0.2s ease", overflow: "hidden" }}>
+      <aside style={{ width: sidebarOpen ? 200 : 68, minWidth: sidebarOpen ? 200 : 68, background: "#0f172a", display: "flex", flexDirection: "column", transition: "width 0.2s ease, min-width 0.2s ease", overflow: "hidden" }}>
         <div style={{ padding: "20px 18px", borderBottom: "1px solid #1e293b", display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ width: 32, height: 32, borderRadius: 8, background: BRAND, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", flexShrink: 0 }}>{icons.wp}</div>
           {sidebarOpen && (
             <div>
               <div style={{ color: "#fff", fontWeight: 700, fontSize: 15, lineHeight: 1 }}>Kodnes admin</div>
-              <div style={{ color: "#475569", fontSize: 11, marginTop: 2 }}>{WP_URL || "WordPress povezava ni nastavljena"}</div>
+              <div style={{ color: "#475569", fontSize: 11, marginTop: 2 }}>{"storitve.kodnes.com"}</div>
             </div>
           )}
         </div>
-
+        
         <nav style={{ flex: 1, padding: "12px 10px" }}>
           {navItems.map((item) => {
             const active = activeView === item.id;
             return (
-              <button key={item.id} onClick={() => setActiveView(item.id)}
+              <button
+                key={item.id}
+                onClick={() => setActiveView(item.id)}
+                title={!sidebarOpen ? item.label : undefined}
                 style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "10px", borderRadius: 8, border: "none", cursor: "pointer", background: active ? BRAND : "transparent", color: active ? "#fff" : "#94a3b8", fontSize: 14, fontWeight: active ? 600 : 400, marginBottom: 2, transition: "all 0.15s", textAlign: "left" }}
                 onMouseEnter={(e) => { if (!active) { e.currentTarget.style.background = "#1e293b"; e.currentTarget.style.color = "#fff"; } }}
                 onMouseLeave={(e) => { if (!active) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#94a3b8"; } }}
@@ -1735,18 +2421,45 @@ export default function Dashboard() {
               </button>
             );
           })}
+
+  
         </nav>
 
-        <div style={{ padding: "12px 10px", borderTop: "1px solid #1e293b" }}>
-          <button onClick={() => setSidebarOpen(!sidebarOpen)}
-            style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "10px", borderRadius: 8, border: "none", cursor: "pointer", background: "transparent", color: "#475569" }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = "#1e293b"; e.currentTarget.style.color = "#94a3b8"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#475569"; }}
-          >
-            {icons.menu}
-            {sidebarOpen && <span style={{ fontSize: 13 }}>Skrči</span>}
-          </button>
-        </div>
+      <div style={{ padding: "10px", borderTop: "1px solid #1e293b", display: "flex", flexDirection: "column", gap: 8 }}>
+        <SidebarProfileButton
+          sidebarOpen={sidebarOpen}
+          active={activeView === "profil"}
+          onClick={() => setActiveView("profil")}
+        />
+
+        <button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          title={!sidebarOpen ? "Skrči / razširi" : undefined}
+          style={{
+            width: "100%",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "10px",
+            borderRadius: 8,
+            border: "none",
+            cursor: "pointer",
+            background: "transparent",
+            color: "#475569",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "#1e293b";
+            e.currentTarget.style.color = "#94a3b8";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "transparent";
+            e.currentTarget.style.color = "#475569";
+          }}
+        >
+          {icons.menu}
+          {sidebarOpen && <span style={{ fontSize: 13 }}>Skrči</span>}
+        </button>
+      </div>
       </aside>
 
       <main style={{ flex: 1, overflow: "auto", display: "flex", flexDirection: "column" }}>
@@ -1757,15 +2470,9 @@ export default function Dashboard() {
           </div>
           {/* Iskanje v headerju */}
           <GlobalSearchBar />
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            {WP_URL && (
-              <a href={WP_ADMIN_URL} target="_blank" rel="noreferrer"
-                style={{ fontSize: 13, color: "#00a4a7", textDecoration: "none", fontWeight: 500 }}>
-                WP Admin ↗
-              </a>
-            )}
-            <LogoutButton />
-          </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <UserMenu />
+        </div>
         </header>
 
         <div style={{ padding: 28, flex: 1, overflowY: "auto" }}>
@@ -1773,17 +2480,19 @@ export default function Dashboard() {
             <h1 style={{ fontSize: 22, fontWeight: 700, color: "#111", margin: 0 }}>{titles[activeView]}</h1>
             <p style={{ fontSize: 13, color: "#888", marginTop: 4 }}>
               {activeView === "dashboard" ? "Pregled vseh vsebin iz Kodnes CMS" :
-               activeView === "statistika" ? "Statistika strank po mesecih in storitvah" :
-               activeView === "finance" ? "Pregled prihodkov in finančnih podatkov" :
-               activeView === "opravila" ? "Vsa opravila in popravki za stranke" :
-               `Vsi zapisi tipa "${titles[activeView]}" iz WordPressa`}
+              activeView === "statistika" ? "Statistika strank po mesecih in storitvah" :
+              activeView === "finance" ? "Pregled prihodkov in finančnih podatkov" :
+              activeView === "opravila" ? "Vsa opravila in popravki za stranke" :
+              activeView === "profil" ? "Urejanje podatkov prijavljenega uporabnika" :
+              `Vsi zapisi tipa "${titles[activeView]}" iz WordPressa`}
             </p>
           </div>
           {activeView === "dashboard" ? <DashboardOverview /> :
-           activeView === "statistika" ? <StatistikaView /> :
-           activeView === "finance" ? <FinanceView /> :
-           activeView === "opravila" ? <OpravilaView /> :
-           <DataTable cptSlug={activeView} />}
+          activeView === "statistika" ? <StatistikaView /> :
+          activeView === "finance" ? <FinanceView /> :
+          activeView === "opravila" ? <OpravilaView /> :
+          activeView === "profil" ? <ProfilView /> :
+          <DataTable cptSlug={activeView} />}
         </div>
       </main>
     </div>
