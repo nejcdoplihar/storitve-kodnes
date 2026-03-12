@@ -23,6 +23,10 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  console.log("WP_URL:", WP_URL);
+  console.log("WP_USER:", WP_USER);
+  console.log("WP_PASS exists:", !!WP_PASS);
+  
   const res = await fetch(`${WP_URL}/wp-json/wp/v2/narocnik`, {
     method: "POST",
     headers: {
