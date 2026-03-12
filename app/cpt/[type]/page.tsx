@@ -363,7 +363,9 @@ export default async function CPTListPage({ params, searchParams }: Props) {
             </h1>
 
             <div style={{ fontSize: 13, color: "#aaa", marginTop: 4 }}>
-              {total > 0 ? `${total} zapisov` : "Nalaganje..."}
+              {total > 0
+                ? `Prikaz ${(currentPage - 1) * 20 + 1}–${Math.min(currentPage * 20, total)} od ${total} zapisov`
+                : "Nalaganje..."}
             </div>
           </div>
 
