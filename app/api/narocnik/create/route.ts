@@ -8,15 +8,19 @@ const credentials = () => Buffer.from(`${WP_USER}:${WP_PASS}`).toString("base64"
 
 export async function POST(req: NextRequest) {
   const cookieStore = await cookies();
+
   if (!cookieStore.get("dashboard_auth")?.value) {
     return NextResponse.json({ error: "Ni avtorizacije" }, { status: 401 });
   }
 
   const body = await req.json();
-  const { title, kontaktna_oseba, email, telefon, podjetje, naslov } = body;
+  const { title, kontaktna_oseba, email, naslov } = body;
 
   if (!title?.trim()) {
-    return NextResponse.json({ error: "Naziv naročnika je obvezen" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Naziv naročnika je obvezen" },
+      { status: 400 }
+    );
   }
 
   const res = await fetch(`${WP_URL}/wp-json/wp/v2/narocnik`, {
@@ -29,11 +33,12 @@ export async function POST(req: NextRequest) {
       title,
       status: "publish",
       acf: {
-        kontaktna_oseba: kontaktna_oseba || "",
-        email: email || "",
-        telefon: telefon || "",
-        podjetje: podjetje || "",
-        naslov: naslov || "",
+        narocnik_naziv: title || "",
+        narocnik_kontaktna_oseba: kontaktna_oseba || "",
+        narocnik_naslov: naslov || "",
+        narocnik_postna_stevilka: "",
+        narocnik_posta: email || "",
+        narocnik_davcna_stevilka: "",
       },
     }),
   });
