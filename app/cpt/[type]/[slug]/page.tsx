@@ -1,8 +1,8 @@
 // app/cpt/[type]/[slug]/page.tsx
-
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { OpravilaSection } from "./OpravilaSection";
 import {
   getCPTPostBySlug,
   getAllCPTSlugs,
@@ -10,6 +10,8 @@ import {
   formatDate,
 } from "@/lib/wordpress";
 import { CPT_CONFIGS } from "@/types/wordpress";
+
+const BRAND = "#00a4a7";
 
 interface Props {
   params: Promise<{ type: string; slug: string }>;
@@ -20,6 +22,14 @@ const STORITVE_LABELS: Record<string, string> = {
   gostovanje: "Gostovanje",
   dom_gos: "Domena & gostovanje",
   vzdrzevanje: "Vzdrževanje",
+};
+
+const OBRACUN_LABELS: Record<string, string> = {
+  letno: "Letno",
+  mesecno: "Mesečno",
+  trimesecno: "Trimesečno",
+  polletno: "Polletno",
+  po_dogovoru: "Po dogovoru",
 };
 
 type ACFValue =
@@ -36,13 +46,6 @@ function stripHtml(html?: string) {
   return html.replace(/<[^>]*>/g, "").trim();
 }
 
-function prettifyLabel(key: string) {
-  return key
-    .replace(/_/g, " ")
-    .replace(/-/g, " ")
-    .replace(/\b\w/g, (char) => char.toUpperCase());
-}
-
 function isEmptyValue(value: unknown) {
   if (value === null || value === undefined) return true;
   if (typeof value === "string" && value.trim() === "") return true;
@@ -55,6 +58,11 @@ function getStoritevLabel(value: unknown) {
   if (!value) return "—";
   if (Array.isArray(value)) return value.map((v) => STORITVE_LABELS[String(v)] || String(v)).join(", ");
   return STORITVE_LABELS[String(value)] || String(value);
+}
+
+function fmtDate(d: string): string {
+  if (!d || d.length !== 8) return d || "—";
+  return new Date(`${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}`).toLocaleDateString("sl-SI");
 }
 
 function renderAcfValue(value: ACFValue): ReactNode {
@@ -79,16 +87,12 @@ function renderAcfValue(value: ACFValue): ReactNode {
     if (value.startsWith("http://") || value.startsWith("https://")) {
       return (
         <a href={value} target="_blank" rel="noreferrer"
-          style={{ color: "#3b82f6", textDecoration: "none", wordBreak: "break-all" }}>
+          style={{ color: BRAND, textDecoration: "none", wordBreak: "break-all" }}>
           {value}
         </a>
       );
     }
-    // ACF date format YYYYMMDD
-    if (/^\d{8}$/.test(value)) {
-      const formatted = new Date(`${value.slice(0,4)}-${value.slice(4,6)}-${value.slice(6,8)}`).toLocaleDateString("sl-SI");
-      return <span>{formatted}</span>;
-    }
+    if (/^\d{8}$/.test(value)) return <span>{fmtDate(value)}</span>;
     return <span>{value}</span>;
   }
 
@@ -98,8 +102,8 @@ function renderAcfValue(value: ACFValue): ReactNode {
     return (
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
         {filtered.map((item, i) => (
-          <span key={i} style={{ padding: "3px 10px", borderRadius: 20, fontSize: 12, background: "#f0f0f0", color: "#444" }}>
-            {typeof item === "string" ? (STORITVE_LABELS[item] || item) : String(item)}
+          <span key={i} style={{ padding: "3px 10px", borderRadius: 20, fontSize: 12, background: `${BRAND}15`, color: BRAND, fontWeight: 500 }}>
+            {typeof item === "string" ? (STORITVE_LABELS[item] || OBRACUN_LABELS[item] || item) : String(item)}
           </span>
         ))}
       </div>
@@ -108,9 +112,7 @@ function renderAcfValue(value: ACFValue): ReactNode {
 
   if (typeof value === "object" && value !== null) {
     const obj = value as Record<string, unknown>;
-    if (typeof obj.rendered === "string") {
-      return <span dangerouslySetInnerHTML={{ __html: obj.rendered }} />;
-    }
+    if (typeof obj.rendered === "string") return <span dangerouslySetInnerHTML={{ __html: obj.rendered }} />;
     const preferredKeys = ["title", "name", "label", "post_title", "value"];
     for (const key of preferredKeys) {
       if (typeof obj[key] === "string") return <span>{obj[key] as string}</span>;
@@ -120,14 +122,15 @@ function renderAcfValue(value: ACFValue): ReactNode {
   return <span>{String(value)}</span>;
 }
 
-function Card({ title, children }: { title: string; children: ReactNode }) {
+function Card({ title, children, action }: { title: string; children: ReactNode; action?: ReactNode }) {
   return (
     <div style={{
       background: "#fff", borderRadius: 14, border: "1px solid #f0f0f0",
       boxShadow: "0 1px 4px rgba(0,0,0,0.06)", overflow: "hidden", marginBottom: 20,
     }}>
-      <div style={{ padding: "16px 24px", borderBottom: "1px solid #f5f5f5" }}>
+      <div style={{ padding: "16px 24px", borderBottom: "1px solid #f5f5f5", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ fontWeight: 700, fontSize: 14, color: "#111" }}>{title}</div>
+        {action}
       </div>
       <div style={{ padding: "8px 24px 16px" }}>{children}</div>
     </div>
@@ -150,6 +153,8 @@ function DetailRow({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
+
+// ---- CPT specific cards ----
 function NarocnikCard({ acf }: { acf?: Record<string, unknown> }) {
   if (!acf) return null;
   return (
@@ -190,6 +195,7 @@ function PonudbaCard({ acf }: { acf?: Record<string, unknown> }) {
   );
 }
 
+// ---- Static generation ----
 export async function generateStaticParams() {
   const paths: { type: string; slug: string }[] = [];
   for (const cpt of CPT_CONFIGS) {
@@ -208,6 +214,7 @@ export async function generateMetadata({ params }: Props) {
   return { title: stripHtml(post.title?.rendered) || "Podrobnosti" };
 }
 
+// ---- Main page ----
 export default async function CPTSinglePage({ params }: Props) {
   const { type, slug } = await params;
 
@@ -222,20 +229,29 @@ export default async function CPTSinglePage({ params }: Props) {
 
   return (
     <div style={{ minHeight: "100vh", background: "#f8f9fb", fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+
       {/* Header */}
       <div style={{ background: "#0f172a", padding: "0 32px", height: 56, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{ width: 28, height: 28, borderRadius: 7, background: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 14 }}>⚡</div>
-          <span style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>WP Dashboard</span>
+          <div style={{ width: 28, height: 28, borderRadius: 7, background: BRAND, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5">
+              <polyline points="13 2 13 9 20 9"/><polygon points="22 12 12 2 2 12"/><polyline points="2 12 2 22 22 22 22 12"/>
+            </svg>
+          </div>
+          <span style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>Kodnes admin</span>
         </div>
-        <Link href="/admin" style={{ fontSize: 13, color: "#94a3b8", textDecoration: "none" }}>← Dashboard</Link>
+        <Link href="/admin" style={{ fontSize: 13, color: "#94a3b8", textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}>
+          ← Dashboard
+        </Link>
       </div>
 
       {/* Breadcrumb */}
-      <div style={{ padding: "16px 32px", borderBottom: "1px solid #eee", background: "#fff", display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#888" }}>
-        <Link href="/admin" style={{ color: "#3b82f6", textDecoration: "none" }}>Pregled</Link>
+      <div style={{ padding: "14px 32px", borderBottom: "1px solid #eee", background: "#fff", display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#888" }}>
+        <Link href="/admin" style={{ color: BRAND, textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}>
+         Pregled
+        </Link>
         <span>›</span>
-        <Link href={`/cpt/${cpt.slug}`} style={{ color: "#3b82f6", textDecoration: "none" }}>{cpt.icon} {cpt.label}</Link>
+        <Link href={`/cpt/${cpt.slug}`} style={{ color: BRAND, textDecoration: "none" }}>{cpt.label}</Link>
         <span>›</span>
         <span style={{ color: "#111", fontWeight: 500 }} dangerouslySetInnerHTML={{ __html: post.title.rendered }} />
       </div>
@@ -246,8 +262,8 @@ export default async function CPTSinglePage({ params }: Props) {
         {/* Title area */}
         <div style={{ marginBottom: 28 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-            <span style={{ padding: "3px 12px", borderRadius: 20, fontSize: 12, fontWeight: 600, background: "#eff6ff", color: "#3b82f6" }}>
-              {cpt.icon} {cpt.label}
+            <span style={{ padding: "3px 12px", borderRadius: 20, fontSize: 12, fontWeight: 600, background: `${BRAND}15`, color: BRAND }}>
+              {cpt.label}
             </span>
             <span style={{
               padding: "3px 12px", borderRadius: 20, fontSize: 12, fontWeight: 600,
@@ -259,23 +275,23 @@ export default async function CPTSinglePage({ params }: Props) {
           </div>
           <h1 style={{ fontSize: 28, fontWeight: 800, color: "#111", margin: 0, lineHeight: 1.2 }}
             dangerouslySetInnerHTML={{ __html: post.title.rendered }} />
-          <div style={{ fontSize: 13, color: "#aaa", marginTop: 8 }}>
-            Datum objave: {formatDate(post.date)}
-          </div>
+          <div style={{ fontSize: 13, color: "#aaa", marginTop: 8 }}>Datum objave: {formatDate(post.date)}</div>
         </div>
 
-        {/* Featured image */}
+        {/* Logo — 1:1 square, small */}
         {imageUrl && (
-          <div style={{ marginBottom: 28, borderRadius: 14, overflow: "hidden", border: "1px solid #f0f0f0", background: "#fff", maxHeight: 320, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <img src={imageUrl} alt={stripHtml(post.title.rendered)}
-              style={{ maxHeight: 320, maxWidth: "100%", objectFit: "contain" }} />
+          <div style={{ marginBottom: 28 }}>
+            <div style={{ width: 80, height: 80, borderRadius: 12, overflow: "hidden", border: "1px solid #f0f0f0", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }}>
+              <img src={imageUrl} alt={stripHtml(post.title.rendered)}
+                style={{ width: "100%", height: "100%", objectFit: "contain", padding: 6 }} />
+            </div>
           </div>
         )}
 
-        {/* 2 column layout */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 24, alignItems: "start" }}>
+        {/* 2 col layout */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: 24, alignItems: "start" }}>
 
-          {/* Left — vsebina + ACF */}
+          {/* Left */}
           <div>
             {hasContent && (
               <Card title="Vsebina">
@@ -283,10 +299,12 @@ export default async function CPTSinglePage({ params }: Props) {
                   dangerouslySetInnerHTML={{ __html: post.content?.rendered || "" }} />
               </Card>
             )}
-
             {type === "narocnik" && <NarocnikCard acf={post.acf} />}
             {type === "stranka" && <StrankaCard acf={post.acf} />}
             {type === "ponudba" && <PonudbaCard acf={post.acf} />}
+
+            {/* Opravila — samo za stranke */}
+            {type === "stranka" && <OpravilaSection strankaId={post.id} />}
           </div>
 
           {/* Right sidebar */}
@@ -309,12 +327,12 @@ export default async function CPTSinglePage({ params }: Props) {
             <Card title="Navigacija">
               <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "8px 0" }}>
                 <Link href={`/cpt/${cpt.slug}`}
-                  style={{ display: "block", textAlign: "center", padding: "10px 16px", borderRadius: 8, background: "#3b82f6", color: "#fff", textDecoration: "none", fontSize: 14, fontWeight: 600 }}>
-                  ← Nazaj na {cpt.label}
+                  style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "10px 16px", borderRadius: 8, background: BRAND, color: "#fff", textDecoration: "none", fontSize: 14, fontWeight: 600 }}>
+                   Nazaj na {cpt.label}
                 </Link>
                 <Link href="/admin"
-                  style={{ display: "block", textAlign: "center", padding: "10px 16px", borderRadius: 8, border: "1px solid #e5e7eb", background: "#fff", color: "#374151", textDecoration: "none", fontSize: 14, fontWeight: 500 }}>
-                  Dashboard
+                  style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "10px 16px", borderRadius: 8, border: "1px solid #e5e7eb", background: "#fff", color: "#374151", textDecoration: "none", fontSize: 14, fontWeight: 500 }}>
+                   Dashboard
                 </Link>
               </div>
             </Card>

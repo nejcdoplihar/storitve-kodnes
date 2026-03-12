@@ -1532,7 +1532,7 @@ export default function Dashboard() {
       <main style={{ flex: 1, overflow: "auto", display: "flex", flexDirection: "column" }}>
         <header style={{ background: "#fff", borderBottom: "1px solid #f0f0f0", padding: "0 28px", height: 60, display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
           <div>
-            <span style={{ fontSize: 13, color: "#aaa" }}>WordPress CMS / </span>
+            <span style={{ fontSize: 13, color: "#aaa" }}>Kodnes CMS / </span>
             <span style={{ fontSize: 13, fontWeight: 600, color: "#111" }}>{titles[activeView]}</span>
           </div>
           {/* Iskanje v headerju */}
@@ -1552,7 +1552,7 @@ export default function Dashboard() {
           <div style={{ marginBottom: 22 }}>
             <h1 style={{ fontSize: 22, fontWeight: 700, color: "#111", margin: 0 }}>{titles[activeView]}</h1>
             <p style={{ fontSize: 13, color: "#888", marginTop: 4 }}>
-              {activeView === "dashboard" ? "Pregled vseh vsebin iz WordPress CMS" :
+              {activeView === "dashboard" ? "Pregled vseh vsebin iz Kodnes CMS" :
                activeView === "statistika" ? "Statistika strank po mesecih in storitvah" :
                activeView === "finance" ? "Pregled prihodkov in finančnih podatkov" :
                activeView === "opravila" ? "Vsa opravila in popravki za stranke" :
