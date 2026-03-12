@@ -202,25 +202,50 @@ function getAcfPreview(acf?: Record<string, unknown>) {
 // ============================================================
 // HOOKS
 // ============================================================
-function useWPData(cptSlug: string) {
+function useWPData(cptSlug: string, page = 1, perPage = 20) {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   const fetchData = async () => {
-    if (!WP_URL) { setError("NEXT_PUBLIC_WORDPRESS_URL ni nastavljen."); setLoading(false); return; }
-    setLoading(true); setError(null);
+    if (!WP_URL) {
+      setError("NEXT_PUBLIC_WORDPRESS_URL ni nastavljen.");
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
     try {
-      const res = await fetch(`${WP_URL.replace(/\/$/, "")}/wp-json/wp/v2/${cptSlug}?per_page=100&_embed=1`, { cache: "no-store" });
+      const res = await fetch(
+        `${WP_URL.replace(/\/$/, "")}/wp-json/wp/v2/${cptSlug}?per_page=${perPage}&page=${page}&_embed=1`,
+        { cache: "no-store" }
+      );
+
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+
       const data = await res.json();
+      const wpTotal = Number(res.headers.get("X-WP-Total") || 0);
+      const wpTotalPages = Number(res.headers.get("X-WP-TotalPages") || 1);
+
       setPosts(Array.isArray(data) ? data : []);
-    } catch (e) { setError(e instanceof Error ? e.message : "Napaka pri nalaganju podatkov."); }
-    finally { setLoading(false); }
+      setTotal(wpTotal);
+      setTotalPages(wpTotalPages);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Napaka pri nalaganju podatkov.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  useEffect(() => { fetchData(); }, [cptSlug]);
-  return { posts, loading, error, refetch: fetchData };
+  useEffect(() => {
+    fetchData();
+  }, [cptSlug, page, perPage]);
+
+  return { posts, loading, error, total, totalPages, refetch: fetchData };
 }
 
 function useStranke() {
@@ -232,7 +257,7 @@ function useStranke() {
     if (!WP_URL) { setLoading(false); return; }
     setLoading(true); setError(null);
     try {
-      const res = await fetch(`${WP_URL.replace(/\/$/, "")}/wp-json/wp/v2/stranka?per_page=100&_embed=true&status=publish`, { cache: "no-store" });
+      const res = await fetch(`${WP_URL.replace(/\/$/, "")}/wp-json/wp/v2/stranka?per_page=20&_embed=true&status=publish`, { cache: "no-store" });
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
       const data = await res.json();
       setStranke(Array.isArray(data) ? data : []);
@@ -297,54 +322,172 @@ function StatCard({ label, value, loading, color, icon }: { label: string; value
 }
 
 function DataTable({ cptSlug }: { cptSlug: string }) {
-  const { posts, loading, error, refetch } = useWPData(cptSlug);
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const perPage = 20;
 
-  const filtered = useMemo(() => posts.filter((p) => p.title.rendered.toLowerCase().includes(search.toLowerCase())), [posts, search]);
+  const { posts, loading, error, total, totalPages, refetch } = useWPData(cptSlug, page, perPage);
+
+  useEffect(() => {
+    setPage(1);
+  }, [cptSlug, search]);
+
+  const filtered = useMemo(() => {
+    return posts.filter((p) =>
+      p.title.rendered.toLowerCase().includes(search.toLowerCase())
+    );
+  }, [posts, search]);
+
+  const from = total === 0 ? 0 : (page - 1) * perPage + 1;
+  const to = total === 0 ? 0 : Math.min(page * perPage, total);
 
   return (
-    <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #f0f0f0", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", overflow: "hidden" }}>
-      <div style={{ padding: "14px 20px", borderBottom: "1px solid #f5f5f5", display: "flex", alignItems: "center", gap: 10 }}>
+    <div
+      style={{
+        background: "#fff",
+        borderRadius: 14,
+        border: "1px solid #f0f0f0",
+        boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+        overflow: "hidden",
+      }}
+    >
+      <div
+        style={{
+          padding: "14px 20px",
+          borderBottom: "1px solid #f5f5f5",
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+        }}
+      >
         <div style={{ color: "#aaa" }}>{icons.search}</div>
-        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Iskanje..." style={{ border: "none", outline: "none", fontSize: 14, color: "#333", background: "transparent", flex: 1 }} />
-        <span style={{ fontSize: 12, color: "#aaa" }}>{filtered.length} zapisov</span>
-        <button onClick={refetch} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#aaa", display: "flex", alignItems: "center" }} title="Osveži">{icons.refresh}</button>
+
+        <input
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1);
+          }}
+          placeholder="Iskanje..."
+          style={{
+            border: "none",
+            outline: "none",
+            fontSize: 14,
+            color: "#333",
+            background: "transparent",
+            flex: 1,
+          }}
+        />
+
+        <span style={{ fontSize: 12, color: "#aaa" }}>
+          {search.trim()
+            ? `${filtered.length} rezultatov na tej strani`
+            : `Prikaz ${from}–${to} od ${total} zapisov`}
+        </span>
+
+        <button
+          onClick={refetch}
+          style={{
+            border: "none",
+            background: "transparent",
+            cursor: "pointer",
+            color: "#aaa",
+            display: "flex",
+            alignItems: "center",
+          }}
+          title="Osveži"
+        >
+          {icons.refresh}
+        </button>
       </div>
-      {error && <div style={{ padding: 20, background: "#fef2f2", color: "#dc2626", fontSize: 13 }}>⚠️ Napaka: {error}</div>}
-      {loading && <div style={{ padding: 40, textAlign: "center", color: "#aaa", fontSize: 14 }}>Nalaganje iz WordPressa...</div>}
+
+      {error && (
+        <div style={{ padding: 20, background: "#fef2f2", color: "#dc2626", fontSize: 13 }}>
+          ⚠️ Napaka: {error}
+        </div>
+      )}
+
+      {loading && (
+        <div style={{ padding: 40, textAlign: "center", color: "#aaa", fontSize: 14 }}>
+          Nalaganje iz WordPressa...
+        </div>
+      )}
+
       {!loading && !error && (
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ background: "#fafafa" }}>
               {["Naslov", "Datum", "Status", ""].map((h) => (
-                <th key={h} style={{ padding: "11px 20px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#888", borderBottom: "1px solid #f0f0f0" }}>{h}</th>
+                <th
+                  key={h}
+                  style={{
+                    padding: "11px 20px",
+                    textAlign: "left",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "#888",
+                    borderBottom: "1px solid #f0f0f0",
+                  }}
+                >
+                  {h}
+                </th>
               ))}
             </tr>
           </thead>
+
           <tbody>
             {filtered.map((post, i) => {
               const acfPreview = getAcfPreview(post.acf);
+
               return (
-                <tr key={post.id} style={{ borderBottom: i < filtered.length - 1 ? "1px solid #f7f7f7" : "none" }}
+                <tr
+                  key={post.id}
+                  style={{
+                    borderBottom: i < filtered.length - 1 ? "1px solid #f7f7f7" : "none",
+                  }}
                   onMouseEnter={(e) => (e.currentTarget.style.background = "#fafafa")}
                   onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                 >
                   <td style={{ padding: "14px 20px" }}>
-                    <div style={{ fontWeight: 600, fontSize: 14, color: "#111" }} dangerouslySetInnerHTML={{ __html: post.title.rendered }} />
+                    <div
+                      style={{ fontWeight: 600, fontSize: 14, color: "#111" }}
+                      dangerouslySetInnerHTML={{ __html: post.title.rendered }}
+                    />
                     {acfPreview.length > 0 && (
                       <div style={{ display: "flex", gap: 12, marginTop: 4, flexWrap: "wrap" }}>
                         {acfPreview.map(([key, val]) => (
                           <span key={key} style={{ fontSize: 11, color: "#888" }}>
-                            <span style={{ color: "#bbb" }}>{key}: </span>{String(val)}
+                            <span style={{ color: "#bbb" }}>{key}: </span>
+                            {String(val)}
                           </span>
                         ))}
                       </div>
                     )}
                   </td>
-                  <td style={{ padding: "14px 20px", fontSize: 13, color: "#666" }}>{formatDate(post.date)}</td>
-                  <td style={{ padding: "14px 20px" }}><StatusBadge status={post.status} /></td>
+
+                  <td style={{ padding: "14px 20px", fontSize: 13, color: "#666" }}>
+                    {formatDate(post.date)}
+                  </td>
+
                   <td style={{ padding: "14px 20px" }}>
-                    <a href={`/cpt/${cptSlug}/${post.slug}`} style={{ fontSize: 13, color: "#00a4a7", fontWeight: 500, textDecoration: "none", display: "flex", alignItems: "center", gap: 2 }}>Odpri {icons.arrow}</a>
+                    <StatusBadge status={post.status} />
+                  </td>
+
+                  <td style={{ padding: "14px 20px" }}>
+                    <a
+                      href={`/cpt/${cptSlug}/${post.slug}`}
+                      style={{
+                        fontSize: 13,
+                        color: "#00a4a7",
+                        fontWeight: 500,
+                        textDecoration: "none",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 2,
+                      }}
+                    >
+                      Odpri {icons.arrow}
+                    </a>
                   </td>
                 </tr>
               );
@@ -352,8 +495,85 @@ function DataTable({ cptSlug }: { cptSlug: string }) {
           </tbody>
         </table>
       )}
+
       {!loading && !error && filtered.length === 0 && (
-        <div style={{ padding: 40, textAlign: "center", color: "#aaa", fontSize: 14 }}>{search ? `Ni rezultatov za "${search}"` : "Ni zapisov"}</div>
+        <div style={{ padding: 40, textAlign: "center", color: "#aaa", fontSize: 14 }}>
+          {search ? `Ni rezultatov za "${search}"` : "Ni zapisov"}
+        </div>
+      )}
+
+      {!loading && !error && !search.trim() && totalPages > 1 && (
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            padding: "14px 20px",
+            borderTop: "1px solid #f0f0f0",
+            background: "#fff",
+          }}
+        >
+          <button
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page === 1}
+            style={{
+              padding: "8px 12px",
+              borderRadius: 8,
+              border: "1px solid #e5e7eb",
+              background: page === 1 ? "#f9fafb" : "#fff",
+              color: page === 1 ? "#9ca3af" : "#374151",
+              cursor: page === 1 ? "not-allowed" : "pointer",
+              fontSize: 13,
+              fontWeight: 500,
+            }}
+          >
+            ← Prejšnja
+          </button>
+
+          <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", justifyContent: "center" }}>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => {
+              const isActive = p === page;
+
+              return (
+                <button
+                  key={p}
+                  onClick={() => setPage(p)}
+                  style={{
+                    minWidth: 34,
+                    height: 34,
+                    padding: "0 10px",
+                    borderRadius: 8,
+                    border: isActive ? "1px solid #00a4a7" : "1px solid #e5e7eb",
+                    background: isActive ? "#00a4a7" : "#fff",
+                    color: isActive ? "#fff" : "#374151",
+                    cursor: "pointer",
+                    fontSize: 13,
+                    fontWeight: isActive ? 700 : 500,
+                  }}
+                >
+                  {p}
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page === totalPages}
+            style={{
+              padding: "8px 12px",
+              borderRadius: 8,
+              border: "1px solid #e5e7eb",
+              background: page === totalPages ? "#f9fafb" : "#fff",
+              color: page === totalPages ? "#9ca3af" : "#374151",
+              cursor: page === totalPages ? "not-allowed" : "pointer",
+              fontSize: 13,
+              fontWeight: 500,
+            }}
+          >
+            Naslednja →
+          </button>
+        </div>
       )}
     </div>
   );
