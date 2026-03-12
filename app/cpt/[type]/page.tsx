@@ -64,6 +64,53 @@ function parseACFDate(value: unknown): string {
   return `${day}. ${month}. ${year}`;
 }
 
+function getACFLabel(value: any): string {
+  if (!value) return "";
+
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => {
+        if (item && typeof item === "object") {
+          if ("label" in item && item.label) return String(item.label);
+          if ("value" in item && item.value) return String(item.value);
+          if ("title" in item && typeof item.title === "string") return item.title;
+          if (
+            "title" in item &&
+            item.title &&
+            typeof item.title === "object" &&
+            "rendered" in item.title
+          ) {
+            return String((item.title as { rendered?: unknown }).rendered || "");
+          }
+          if ("name" in item && item.name) return String(item.name);
+        }
+
+        return String(item);
+      })
+      .filter(Boolean)
+      .join(", ");
+  }
+
+  if (typeof value === "object") {
+    if ("label" in value && value.label) return String(value.label);
+    if ("value" in value && value.value) return String(value.value);
+    if ("title" in value && typeof value.title === "string") return value.title;
+
+    if (
+      "title" in value &&
+      value.title &&
+      typeof value.title === "object" &&
+      "rendered" in value.title
+    ) {
+      return String((value.title as { rendered?: unknown }).rendered || "");
+    }
+
+    if ("name" in value && value.name) return String(value.name);
+  }
+
+  return String(value);
+}
+
 function formatRelationshipValue(value: unknown): string {
   if (isEmptyValue(value)) return "";
 
