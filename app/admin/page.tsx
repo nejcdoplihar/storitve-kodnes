@@ -1,9 +1,89 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef, type ReactNode } from "react";
+
+const BRAND = "#00a4a7";
+const INACTIVE_MS = 5 * 60 * 1000; // 5 minut neaktivnosti
+const WARNING_S = 45;               // 45 sekund odštevalnik
 
 const WP_URL = process.env.NEXT_PUBLIC_WORDPRESS_URL || "";
 const WP_ADMIN_URL = `${WP_URL.replace(/\/$/, "")}/wp-admin`;
+
+// ============================================================
+// SESSION TIMEOUT
+// ============================================================
+function useSessionTimeout() {
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const logout = useCallback(async () => {
+    await fetch("/api/logout", { method: "POST" });
+    window.location.href = "/";
+  }, []);
+
+  const resetTimer = useCallback(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (countdownRef.current) clearInterval(countdownRef.current);
+    setCountdown(null);
+
+    timerRef.current = setTimeout(() => {
+      setCountdown(WARNING_S);
+      let secs = WARNING_S;
+      countdownRef.current = setInterval(() => {
+        secs--;
+        setCountdown(secs);
+        if (secs <= 0) {
+          if (countdownRef.current) clearInterval(countdownRef.current);
+          logout();
+        }
+      }, 1000);
+    }, INACTIVE_MS);
+  }, [logout]);
+
+  useEffect(() => {
+    const events = ["mousemove", "mousedown", "keydown", "touchstart", "scroll", "click"];
+    events.forEach(e => window.addEventListener(e, resetTimer, { passive: true }));
+    resetTimer();
+    return () => {
+      events.forEach(e => window.removeEventListener(e, resetTimer));
+      if (timerRef.current) clearTimeout(timerRef.current);
+      if (countdownRef.current) clearInterval(countdownRef.current);
+    };
+  }, [resetTimer]);
+
+  return { countdown, resetTimer, logout };
+}
+
+function SessionWarning({ countdown, onStay, onLogout }: { countdown: number; onStay: () => void; onLogout: () => void }) {
+  const urgent = countdown <= 10;
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ background: "#fff", borderRadius: 16, padding: "36px 40px", maxWidth: 400, width: "90%", boxShadow: "0 20px 60px rgba(0,0,0,0.3)", textAlign: "center" }}>
+        <div style={{ width: 64, height: 64, borderRadius: "50%", margin: "0 auto 20px", background: urgent ? "#fee2e2" : "#f0fdf4", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28 }}>
+          ⏱️
+        </div>
+        <h2 style={{ fontSize: 18, fontWeight: 700, color: "#111", margin: "0 0 8px" }}>Seja bo kmalu potekla</h2>
+        <p style={{ fontSize: 14, color: "#666", margin: "0 0 24px", lineHeight: 1.5 }}>
+          Zaradi neaktivnosti boš avtomatsko odjavljen.
+        </p>
+        <div style={{ width: 80, height: 80, borderRadius: "50%", margin: "0 auto 24px", background: urgent ? "#fee2e2" : "#f0fdf4", border: `4px solid ${urgent ? "#dc2626" : BRAND}`, display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.3s" }}>
+          <span style={{ fontSize: 28, fontWeight: 800, color: urgent ? "#dc2626" : BRAND }}>{countdown}</span>
+        </div>
+        <div style={{ display: "flex", gap: 12 }}>
+          <button onClick={onLogout}
+            style={{ flex: 1, padding: "10px", borderRadius: 8, border: "1px solid #e5e7eb", background: "#fff", color: "#6b7280", fontSize: 14, fontWeight: 500, cursor: "pointer" }}>
+            Odjava
+          </button>
+          <button onClick={onStay}
+            style={{ flex: 1, padding: "10px", borderRadius: 8, border: "none", background: BRAND, color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
+            Ostani prijavljen
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ============================================================
 // TYPES
@@ -35,7 +115,7 @@ type Stranka = Post & {
   };
 };
 
-type ActiveView = "dashboard" | "narocnik" | "ponudba" | "stranka";
+type ActiveView = "dashboard" | "narocnik" | "ponudba" | "stranka" | "statistika" | "finance" | "opravila";
 
 // ============================================================
 // STORITVE LABELS
@@ -99,6 +179,10 @@ const icons = {
   calendar: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
   link: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>,
   check: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>,
+  chart: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>,
+  euro: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 10h12M4 14h12M19.5 6.5A7.5 7.5 0 1 0 19.5 17.5"/></svg>,
+  task: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>,
+  close: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
 };
 
 // ============================================================
@@ -260,7 +344,7 @@ function DataTable({ cptSlug }: { cptSlug: string }) {
                   <td style={{ padding: "14px 20px", fontSize: 13, color: "#666" }}>{formatDate(post.date)}</td>
                   <td style={{ padding: "14px 20px" }}><StatusBadge status={post.status} /></td>
                   <td style={{ padding: "14px 20px" }}>
-                    <a href={`/cpt/${cptSlug}/${post.slug}`} style={{ fontSize: 13, color: "#3b82f6", fontWeight: 500, textDecoration: "none", display: "flex", alignItems: "center", gap: 2 }}>Odpri {icons.arrow}</a>
+                    <a href={`/cpt/${cptSlug}/${post.slug}`} style={{ fontSize: 13, color: "#00a4a7", fontWeight: 500, textDecoration: "none", display: "flex", alignItems: "center", gap: 2 }}>Odpri {icons.arrow}</a>
                   </td>
                 </tr>
               );
@@ -326,7 +410,7 @@ function PodaljsajButton({ strankaId, currentDate, onSuccess }: { strankaId: num
       style={{
         fontSize: 12, fontWeight: 600, cursor: status === "loading" ? "default" : "pointer",
         padding: "5px 12px", borderRadius: 6, border: "none",
-        background: status === "loading" ? "#bfdbfe" : "#3b82f6",
+        background: status === "loading" ? "#bfdbfe" : "#00a4a7",
         color: "#fff", whiteSpace: "nowrap", transition: "background 0.15s",
       }}
     >
@@ -390,6 +474,17 @@ function StrankeTekoMesec({ stranke: initialStranke, loading }: { stranke: Stran
 
       {!loading && thisMonth.length > 0 && (
         <>
+          {/* Glava tabele */}
+          <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "8px 24px", background: "#fafafa", borderBottom: "1px solid #f0f0f0" }}>
+            <div style={{ width: 36, flexShrink: 0 }} />
+            <div style={{ width: 160, fontSize: 11, fontWeight: 600, color: "#aaa" }}>Stranka</div>
+            <div style={{ flex: 1, fontSize: 11, fontWeight: 600, color: "#aaa" }}>Storitev</div>
+            <div style={{ width: 130, fontSize: 11, fontWeight: 600, color: "#aaa" }}>Potek</div>
+            <div style={{ width: 120, fontSize: 11, fontWeight: 600, color: "#aaa" }}>Status</div>
+            <div style={{ width: 70, fontSize: 11, fontWeight: 600, color: "#aaa", textAlign: "right" }}>Strošek</div>
+            <div style={{ width: 160, flexShrink: 0 }} />
+          </div>
+
           {thisMonth.map((stranka, i) => {
             const logo = stranka._embedded?.["wp:featuredmedia"]?.[0]?.source_url || null;
             const currentDate = overrides[stranka.id] || stranka.acf?.potek_storitev;
@@ -397,38 +492,36 @@ function StrankeTekoMesec({ stranke: initialStranke, loading }: { stranke: Stran
 
             return (
               <div key={stranka.id}
-                style={{ padding: "14px 24px", borderBottom: i < thisMonth.length - 1 ? "1px solid #f7f7f7" : "none", display: "flex", alignItems: "center", gap: 16 }}
+                style={{ padding: "12px 24px", borderBottom: i < thisMonth.length - 1 ? "1px solid #f7f7f7" : "none", display: "flex", alignItems: "center", gap: 16 }}
                 onMouseEnter={e => (e.currentTarget.style.background = "#fafafe")}
                 onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
               >
                 {/* Logo */}
-                <div style={{ width: 52, height: 36, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <div style={{ width: 36, height: 28, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
                   {logo
-                    ? <img src={logo} alt={stranka.title.rendered} style={{ maxWidth: 52, maxHeight: 36, objectFit: "contain", borderRadius: 4 }} />
-                    : <div style={{ width: 52, height: 36, background: "#f3f4f6", borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>🏢</div>
+                    ? <img src={logo} alt={stranka.title.rendered} style={{ maxWidth: 36, maxHeight: 28, objectFit: "contain", borderRadius: 3 }} />
+                    : <div style={{ width: 36, height: 28, background: "#f3f4f6", borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>🏢</div>
                   }
                 </div>
 
                 {/* Ime + domena */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, fontSize: 14, color: "#111" }}>{stranka.title.rendered}</div>
+                <div style={{ width: 160, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: "#111", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{stranka.title.rendered}</div>
                   {stranka.acf?.domena_url && (
                     <a href={stranka.acf.domena_url} target="_blank" rel="noreferrer"
-                      style={{ fontSize: 11, color: "#3b82f6", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 3, marginTop: 1 }}>
+                      style={{ fontSize: 11, color: "#00a4a7", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 3, marginTop: 1 }}>
                       {icons.link} {stranka.acf.domena_url.replace(/^https?:\/\//, "").replace(/\/$/, "")}
                     </a>
                   )}
                 </div>
 
                 {/* Storitev */}
-                <div style={{ minWidth: 120 }}>
-                  <div style={{ fontSize: 11, color: "#aaa", marginBottom: 1 }}>Storitev</div>
+                <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 13, color: "#555" }}>{getStoritveLabel(stranka.acf?.storitve)}</div>
                 </div>
 
                 {/* Datum poteka */}
-                <div style={{ minWidth: 100 }}>
-                  <div style={{ fontSize: 11, color: "#aaa", marginBottom: 1 }}>Potek</div>
+                <div style={{ width: 130 }}>
                   <div style={{ fontSize: 13, fontWeight: 500, color: "#333" }}>{formatACFDate(currentDate)}</div>
                   <div style={{ fontSize: 11, color: daysLeft <= 5 ? "#f59e0b" : "#aaa" }}>
                     {daysLeft < 0 ? `${Math.abs(daysLeft)} dni nazaj` : daysLeft === 0 ? "danes" : `čez ${daysLeft} dni`}
@@ -436,13 +529,13 @@ function StrankeTekoMesec({ stranke: initialStranke, loading }: { stranke: Stran
                 </div>
 
                 {/* Badge */}
-                <div style={{ minWidth: 100 }}>
+                <div style={{ width: 120 }}>
                   <PotekBadge daysLeft={daysLeft} />
                 </div>
 
                 {/* Strošek */}
-                <div style={{ minWidth: 80, textAlign: "right" }}>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: "#111" }}>
+                <div style={{ width: 70, textAlign: "right" }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#111" }}>
                     {stranka.acf?.strosek ? `${stranka.acf.strosek} €` : "—"}
                   </div>
                   {stranka.acf?.strosek_obracun?.length > 0 && (
@@ -451,7 +544,7 @@ function StrankeTekoMesec({ stranke: initialStranke, loading }: { stranke: Stran
                 </div>
 
                 {/* Gumbi */}
-                <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0, width: 160 }}>
                   <PodaljsajButton
                     strankaId={stranka.id}
                     currentDate={currentDate}
@@ -479,6 +572,386 @@ function StrankeTekoMesec({ stranke: initialStranke, loading }: { stranke: Stran
 }
 
 // ============================================================
+// GLOBALNO ISKANJE
+// ============================================================
+function GlobalSearchBar() {
+  const narocniki = useWPData("narocnik");
+  const ponudbe = useWPData("ponudba");
+  const stranke = useWPData("stranka");
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+
+  const results = useMemo(() => {
+    if (!query.trim() || query.length < 2) return [];
+    const q = query.toLowerCase();
+    return [
+      ...narocniki.posts.filter(p => p.title.rendered.toLowerCase().includes(q)).map(p => ({ ...p, cptType: "Naročnik", cptSlug: "narocnik", color: "#00a4a7" })),
+      ...ponudbe.posts.filter(p => p.title.rendered.toLowerCase().includes(q)).map(p => ({ ...p, cptType: "Ponudba", cptSlug: "ponudba", color: "#10b981" })),
+      ...stranke.posts.filter(p => p.title.rendered.toLowerCase().includes(q)).map(p => ({ ...p, cptType: "Stranka", cptSlug: "stranka", color: "#f59e0b" })),
+    ].slice(0, 8);
+  }, [query, narocniki.posts, ponudbe.posts, stranke.posts]);
+
+  return (
+    <div style={{ position: "relative", width: 500 }}>
+      <div style={{ background: "#f8f9fb", borderRadius: 8, border: "1px solid #e5e7eb", display: "flex", alignItems: "center", gap: 8, padding: "7px 12px" }}>
+        <span style={{ color: "#aaa", flexShrink: 0 }}>{icons.search}</span>
+        <input
+          value={query}
+          onChange={e => { setQuery(e.target.value); setOpen(true); }}
+          onFocus={() => setOpen(true)}
+          onBlur={() => setTimeout(() => setOpen(false), 150)}
+          placeholder="Iskanje..."
+          style={{ border: "none", outline: "none", fontSize: 13, color: "#333", background: "transparent", flex: 1, width: "100%" }}
+        />
+        {query && <button onClick={() => setQuery("")} style={{ border: "none", background: "none", cursor: "pointer", color: "#aaa", fontSize: 16, lineHeight: 1, flexShrink: 0 }}>×</button>}
+      </div>
+
+      {open && query.length >= 2 && (
+        <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0, background: "#fff", borderRadius: 10, border: "1px solid #e5e7eb", boxShadow: "0 8px 24px rgba(0,0,0,0.1)", zIndex: 1000, overflow: "hidden" }}>
+          {results.length === 0 ? (
+            <div style={{ padding: "14px 16px", fontSize: 13, color: "#aaa", textAlign: "center" }}>Ni rezultatov</div>
+          ) : (
+            results.map((item, i) => (
+              <a key={`${item.cptSlug}-${item.id}`} href={`/cpt/${item.cptSlug}/${item.slug}`}
+                style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", textDecoration: "none", borderBottom: i < results.length - 1 ? "1px solid #f7f7f7" : "none", background: "#fff" }}
+                onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
+                onMouseLeave={e => (e.currentTarget.style.background = "#fff")}
+              >
+                <span style={{ padding: "2px 7px", borderRadius: 10, fontSize: 11, fontWeight: 600, background: item.color + "18", color: item.color, flexShrink: 0 }}>{item.cptType}</span>
+                <span style={{ fontSize: 13, color: "#111", fontWeight: 500 }} dangerouslySetInnerHTML={{ __html: item.title.rendered }} />
+                <span style={{ fontSize: 12, color: "#aaa", marginLeft: "auto", flexShrink: 0 }}>→</span>
+              </a>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// HELPERS — FINANCE & STATISTIKA
+// ============================================================
+const MESECI_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'Maj', 'Jun', 'Jul', 'Avg', 'Sep', 'Okt', 'Nov', 'Dec'];
+
+const STORITVE_COLORS: Record<string, string> = {
+  domena: '#3b82f6',
+  gostovanje: '#10b981',
+  dom_gos: '#00a4a7',
+  vzdrzevanje: '#f59e0b',
+};
+
+function getAnnualCost(cost: number, billing: string | string[]): number {
+  const b = Array.isArray(billing) ? billing[0] : billing;
+  switch (b) {
+    case 'letno': return cost;
+    case 'mesecno': return cost * 12;
+    case 'trimesecno': return (cost / 3) * 12;
+    case 'polletno': return (cost / 6) * 12;
+    default: return 0;
+  }
+}
+
+// Mini bar chart (SVG)
+function BarChart({ data, color = BRAND }: { data: number[]; color?: string }) {
+  const max = Math.max(...data, 1);
+  const padTop = 20, h = 60, padBottom = 20;
+  const totalH = padTop + h + padBottom;
+  const svgW = 440;
+  const barW = 24;
+  const spacing = svgW / 12;
+  return (
+    <svg viewBox={`0 0 ${svgW} ${totalH}`} style={{ display: 'block', width: '100%', height: 'auto' }}>
+      {data.map((v, i) => {
+        const barH = Math.max((v / max) * h, v > 0 ? 4 : 0);
+        const x = i * spacing + spacing / 2 - barW / 2;
+        const y = padTop + h - barH;
+        const cx = x + barW / 2;
+        return (
+          <g key={i}>
+            <rect x={x} y={y} width={barW} height={barH} fill={color} rx={3} opacity={0.85} />
+            {v > 0 && <text x={cx} y={y - 5} textAnchor="middle" fontSize={10} fill="#555" fontWeight={600}>{v}</text>}
+            <text x={cx} y={padTop + h + 15} textAnchor="middle" fontSize={10} fill="#aaa">{MESECI_SHORT[i]}</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+// Mini line chart (SVG)
+function LineChart({ data, color = BRAND }: { data: number[]; color?: string }) {
+  const max = Math.max(...data, 1);
+  const padL = 30, padR = 30, padTop = 24, h = 70;
+  const svgW = 440, innerW = svgW - padL - padR;
+  const totalH = padTop + h + 28;
+
+  const pts = data.map((v, i) => {
+    const x = padL + (i / 11) * innerW;
+    const y = padTop + h - (v / max) * h;
+    return { x, y, v };
+  });
+
+  const polyline = pts.map(p => `${p.x},${p.y}`).join(' ');
+  const area = `${pts[0].x},${padTop + h} ` + polyline + ` ${pts[11].x},${padTop + h}`;
+
+  return (
+    <svg viewBox={`0 0 ${svgW} ${totalH}`} style={{ display: 'block', width: '100%', height: 'auto' }}>
+      <defs>
+        <linearGradient id="lineGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity={0.18} />
+          <stop offset="100%" stopColor={color} stopOpacity={0} />
+        </linearGradient>
+      </defs>
+      <polygon points={area} fill="url(#lineGrad)" />
+      <polyline points={polyline} fill="none" stroke={color} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
+      {pts.map((p, i) => (
+        <g key={i}>
+          {p.v > 0 && <circle cx={p.x} cy={p.y} r={3.5} fill={color} />}
+          {p.v > 0 && (
+            <text x={p.x} y={p.y - 9} textAnchor="middle" fontSize={10} fill="#555" fontWeight={600}>
+              {p.v.toLocaleString('sl-SI')}
+            </text>
+          )}
+          <text x={p.x} y={padTop + h + 18} textAnchor="middle" fontSize={10} fill="#aaa">{MESECI_SHORT[i]}</text>
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+// Donut chart (SVG)
+function DonutChart({ segments }: { segments: { label: string; value: number; color: string }[] }) {
+  const total = segments.reduce((s, x) => s + x.value, 0);
+  if (total === 0) return <div style={{ padding: 20, color: '#aaa', fontSize: 13, textAlign: 'center' }}>Ni podatkov</div>;
+  const r = 56, cx = 80, cy = 80, stroke = 26;
+  const circ = 2 * Math.PI * r;
+  let cumulative = 0;
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+      <svg width={160} height={160} viewBox="0 0 160 160" style={{ flexShrink: 0 }}>
+        {/* Background circle */}
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke="#f0f0f0" strokeWidth={stroke} />
+        {segments.filter(s => s.value > 0).map((seg, i) => {
+          const pct = seg.value / total;
+          const dash = pct * circ;
+          // rotate so we start from top (-90deg), offset by cumulative
+          const rotation = -90 + (cumulative / total) * 360;
+          cumulative += seg.value;
+          return (
+            <circle key={i} cx={cx} cy={cy} r={r}
+              fill="none"
+              stroke={seg.color}
+              strokeWidth={stroke}
+              strokeDasharray={`${dash} ${circ - dash}`}
+              strokeDashoffset={0}
+              transform={`rotate(${rotation}, ${cx}, ${cy})`}
+            />
+          );
+        })}
+        <text x={cx} y={cy - 7} textAnchor="middle" fontSize={14} fontWeight={800} fill="#111">{total.toLocaleString('sl-SI')}</text>
+        <text x={cx} y={cy + 11} textAnchor="middle" fontSize={10} fill="#aaa">skupaj</text>
+      </svg>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {segments.filter(s => s.value > 0).map((seg, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ width: 10, height: 10, borderRadius: '50%', background: seg.color, flexShrink: 0 }} />
+            <div>
+              <div style={{ fontSize: 12, color: '#555', fontWeight: 500 }}>{seg.label}</div>
+              <div style={{ fontSize: 13, color: '#111', fontWeight: 700 }}>{seg.value.toLocaleString('sl-SI')}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// STATISTIKA VIEW
+// ============================================================
+function StatistikaView() {
+  const { stranke, loading } = useStranke();
+
+  const { monthlyStranke, serviceStranke } = useMemo(() => {
+    const monthly = Array(12).fill(0);
+    const services: Record<string, number> = { domena: 0, gostovanje: 0, dom_gos: 0, vzdrzevanje: 0 };
+
+    stranke.forEach(s => {
+      const acf = s.acf as Record<string, unknown>;
+      const potek = acf?.potek_storitev as string;
+      const storitve = acf?.storitve as string | string[];
+      const vzdrz = acf?.stanje_vzdrzevanja as boolean;
+      const storitveArr = Array.isArray(storitve) ? storitve : storitve ? [storitve] : [];
+      const hasVzdrz = storitveArr.includes('vzdrzevanje');
+
+      if (!hasVzdrz || vzdrz === true) {
+        if (potek && potek.length === 8) {
+          const month = parseInt(potek.slice(4, 6)) - 1;
+          if (month >= 0 && month < 12) monthly[month]++;
+        }
+        storitveArr.forEach(sv => {
+          if (sv in services) services[sv]++;
+        });
+      }
+    });
+
+    return {
+      monthlyStranke: monthly,
+      serviceStranke: services,
+    };
+  }, [stranke]);
+
+  const donutData = [
+    { label: 'Domena', value: serviceStranke.domena, color: STORITVE_COLORS.domena },
+    { label: 'Gostovanje', value: serviceStranke.gostovanje, color: STORITVE_COLORS.gostovanje },
+    { label: 'Dom. & gost.', value: serviceStranke.dom_gos, color: STORITVE_COLORS.dom_gos },
+    { label: 'Vzdrževanje', value: serviceStranke.vzdrzevanje, color: STORITVE_COLORS.vzdrzevanje },
+  ];
+
+  if (loading) return <div style={{ padding: 40, textAlign: 'center', color: '#aaa' }}>Nalaganje...</div>;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* Stat cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
+        {donutData.map(d => (
+          <div key={d.label} style={{ background: '#fff', borderRadius: 12, padding: '18px 20px', border: '1px solid #f0f0f0', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+            <div style={{ fontSize: 12, color: '#888', marginBottom: 6 }}>{d.label}</div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: '#111' }}>{d.value}</div>
+            <div style={{ marginTop: 6, height: 3, borderRadius: 2, background: d.color + '33' }}>
+              <div style={{ height: 3, borderRadius: 2, background: d.color, width: `${stranke.length ? (d.value / stranke.length) * 100 : 0}%` }} />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Grafi */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+        <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #f0f0f0', padding: '20px 24px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+          <div style={{ fontWeight: 700, fontSize: 14, color: '#111', marginBottom: 4 }}>Stranke po mesecih</div>
+          <div style={{ fontSize: 12, color: '#aaa', marginBottom: 16 }}>Glede na datum poteka storitve</div>
+          <BarChart data={monthlyStranke} color={BRAND} />
+        </div>
+        <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #f0f0f0', padding: '20px 24px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+          <div style={{ fontWeight: 700, fontSize: 14, color: '#111', marginBottom: 4 }}>Razdelitev po storitvah</div>
+          <div style={{ fontSize: 12, color: '#aaa', marginBottom: 16 }}>Število strank na storitev</div>
+          <DonutChart segments={donutData} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// FINANCE VIEW
+// ============================================================
+function FinanceView() {
+  const { stranke, loading } = useStranke();
+
+  const { totalVse, totalDomena, totalGostovanje, totalDomGos, totalVzdrz, monthlyFinance, serviceFinance } = useMemo(() => {
+    let vse = 0, domena = 0, gostovanje = 0, domGos = 0, vzdrz = 0;
+    const monthly = Array(12).fill(0);
+    const serviceF: Record<string, number> = { domena: 0, gostovanje: 0, dom_gos: 0, vzdrzevanje: 0 };
+
+    stranke.forEach(s => {
+      const acf = s.acf as Record<string, unknown>;
+      const cost = Number(acf?.strosek) || 0;
+      const billing = (acf?.strosek_obracun as string | string[]) || 'letno';
+      const storitve = acf?.storitve as string | string[];
+      const vzdrStatus = acf?.stanje_vzdrzevanja as boolean;
+      const potek = acf?.potek_storitev as string;
+      const storitveArr = Array.isArray(storitve) ? storitve : storitve ? [storitve] : [];
+      const hasVzdrz = storitveArr.includes('vzdrzevanje');
+
+      if (!cost) return;
+
+      storitveArr.forEach(sv => {
+        if (sv === 'vzdrzevanje') {
+          if (vzdrStatus === true) {
+            const annual = getAnnualCost(cost, billing);
+            vzdrz += annual;
+            serviceF.vzdrzevanje += annual;
+            vse += annual;
+          }
+        } else {
+          if (sv === 'domena') { domena += cost; serviceF.domena += cost; }
+          if (sv === 'gostovanje') { gostovanje += cost; serviceF.gostovanje += cost; }
+          if (sv === 'dom_gos') { domGos += cost; serviceF.dom_gos += cost; }
+          if (!hasVzdrz || vzdrStatus === true) vse += cost;
+        }
+      });
+
+      // Mesečni graf
+      if (potek && potek.length === 8 && (!hasVzdrz || vzdrStatus === true)) {
+        const month = parseInt(potek.slice(4, 6)) - 1;
+        if (month >= 0 && month < 12) monthly[month] += cost;
+      }
+    });
+
+    return {
+      totalVse: vse, totalDomena: domena, totalGostovanje: gostovanje,
+      totalDomGos: domGos, totalVzdrz: vzdrz,
+      monthlyFinance: monthly, serviceFinance: serviceF,
+    };
+  }, [stranke]);
+
+  const donutData = [
+    { label: 'Domena', value: totalDomena, color: STORITVE_COLORS.domena },
+    { label: 'Gostovanje', value: totalGostovanje, color: STORITVE_COLORS.gostovanje },
+    { label: 'Dom. & gost.', value: totalDomGos, color: STORITVE_COLORS.dom_gos },
+    { label: 'Vzdrževanje', value: totalVzdrz, color: STORITVE_COLORS.vzdrzevanje },
+  ];
+
+  if (loading) return <div style={{ padding: 40, textAlign: 'center', color: '#aaa' }}>Nalaganje...</div>;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* Skupaj kartica */}
+      <div style={{ background: `linear-gradient(135deg, ${BRAND}, #007a7d)`, borderRadius: 14, padding: '24px 28px', color: '#fff', boxShadow: '0 4px 16px rgba(0,164,167,0.3)' }}>
+        <div style={{ fontSize: 13, opacity: 0.8, marginBottom: 6 }}>Skupni letni prihodek</div>
+        <div style={{ fontSize: 40, fontWeight: 900, letterSpacing: -1 }}>{totalVse.toLocaleString('sl-SI', { minimumFractionDigits: 0 })} €</div>
+        <div style={{ fontSize: 13, opacity: 0.7, marginTop: 4 }}>{(totalVse * 1.22).toLocaleString('sl-SI', { minimumFractionDigits: 0 })} € z DDV</div>
+      </div>
+
+      {/* Stat cards po storitvah */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
+        {donutData.map(d => (
+          <div key={d.label} style={{ background: '#fff', borderRadius: 12, padding: '18px 20px', border: '1px solid #f0f0f0', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <div style={{ fontSize: 12, color: '#888', marginBottom: 6 }}>{d.label}</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: '#111' }}>{d.value.toLocaleString('sl-SI')} €</div>
+                <div style={{ fontSize: 11, color: '#aaa', marginTop: 2 }}>{(d.value * 1.22).toLocaleString('sl-SI')} € z DDV</div>
+              </div>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: d.color, marginTop: 4 }} />
+            </div>
+            <div style={{ marginTop: 10, height: 3, borderRadius: 2, background: d.color + '22' }}>
+              <div style={{ height: 3, borderRadius: 2, background: d.color, width: `${totalVse ? (d.value / totalVse) * 100 : 0}%` }} />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Grafi */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+        <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #f0f0f0', padding: '20px 24px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+          <div style={{ fontWeight: 700, fontSize: 14, color: '#111', marginBottom: 4 }}>Prihodki po mesecih</div>
+          <div style={{ fontSize: 12, color: '#aaa', marginBottom: 16 }}>Glede na datum poteka storitve</div>
+          <LineChart data={monthlyFinance} color={BRAND} />
+        </div>
+        <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #f0f0f0', padding: '20px 24px', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+          <div style={{ fontWeight: 700, fontSize: 14, color: '#111', marginBottom: 4 }}>Razdelitev prihodkov</div>
+          <div style={{ fontSize: 12, color: '#aaa', marginBottom: 16 }}>Po vrsti storitve</div>
+          <DonutChart segments={donutData} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+// ============================================================
 // DASHBOARD OVERVIEW
 // ============================================================
 function DashboardOverview() {
@@ -491,7 +964,7 @@ function DashboardOverview() {
 
   const recentAll = useMemo(() => {
     return [
-      ...narocniki.posts.map((p) => ({ ...p, cptType: "Naročnik", cptSlug: "narocnik", color: "#3b82f6" })),
+      ...narocniki.posts.map((p) => ({ ...p, cptType: "Naročnik", cptSlug: "narocnik", color: "#00a4a7" })),
       ...ponudbe.posts.map((p) => ({ ...p, cptType: "Ponudba", cptSlug: "ponudba", color: "#10b981" })),
       ...stranke.posts.map((p) => ({ ...p, cptType: "Stranka", cptSlug: "stranka", color: "#f59e0b" })),
     ]
@@ -502,7 +975,7 @@ function DashboardOverview() {
   return (
     <div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 28 }}>
-        <StatCard label="Naročniki" value={narocniki.posts.length} loading={narocniki.loading} color="#3b82f6" icon={icons.users} />
+        <StatCard label="Naročniki" value={narocniki.posts.length} loading={narocniki.loading} color="#00a4a7" icon={icons.users} />
         <StatCard label="Ponudbe" value={ponudbe.posts.length} loading={ponudbe.loading} color="#10b981" icon={icons.file} />
         <StatCard label="Stranke" value={stranke.posts.length} loading={stranke.loading} color="#f59e0b" icon={icons.building} />
       </div>
@@ -549,34 +1022,480 @@ function DashboardOverview() {
 }
 
 // ============================================================
+// OPRAVILA — HOOK, MODAL, VIEW
+// ============================================================
+
+type Opravilo = {
+  id: number;
+  slug: string;
+  title: { rendered: string };
+  acf: {
+    datum_opravila: string;
+    uporabnik: string;
+    naslov_opravila: string;
+    opis_opravila: string;
+    cas_ure: number;
+    custom_postavka: boolean;
+    urna_postavka: number;
+    stranka_rel: Array<{ ID: number; post_title: string; post_name: string }>;
+    placano: boolean;
+  };
+};
+
+function useOpravila(strankaId?: number) {
+  const [opravila, setOpravila] = useState<Opravilo[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchData = async () => {
+    if (!WP_URL) { setLoading(false); return; }
+    setLoading(true); setError(null);
+    try {
+      const url = strankaId
+        ? `${WP_URL.replace(/\/$/, "")}/wp-json/wp/v2/opravilo?per_page=100&_embed=1&acf_format=standard`
+        : `${WP_URL.replace(/\/$/, "")}/wp-json/wp/v2/opravilo?per_page=100&_embed=1&acf_format=standard`;
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+      let data: Opravilo[] = await res.json();
+      if (strankaId) {
+        data = data.filter(o => {
+          const rel = o.acf?.stranka_rel;
+          if (!rel) return false;
+          if (Array.isArray(rel)) return rel.some((r: { ID: number }) => r.ID === strankaId);
+          return false;
+        });
+      }
+      data.sort((a, b) => (b.acf?.datum_opravila || "").localeCompare(a.acf?.datum_opravila || ""));
+      setOpravila(data);
+    } catch (e) { setError(e instanceof Error ? e.message : "Napaka"); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { fetchData(); }, [strankaId]);
+  return { opravila, loading, error, refetch: fetchData };
+}
+
+function useCurrentUser() {
+  const [username, setUsername] = useState("");
+  useEffect(() => {
+    fetch("/api/me").then(r => r.json()).then(d => setUsername(d.username || ""));
+  }, []);
+  return username;
+}
+
+// Format ACF date YYYYMMDD → sl-SI
+function fmtDate(d: string): string {
+  if (!d || d.length !== 8) return d || "—";
+  return new Date(`${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}`).toLocaleDateString("sl-SI");
+}
+
+// Today as YYYYMMDD
+function todayYMD(): string {
+  const d = new Date();
+  return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}`;
+}
+
+// Cas options: 0.5, 1, 1.5 ... 16
+const CAS_OPTIONS = Array.from({ length: 32 }, (_, i) => (i + 1) * 0.5);
+
+// ---- Modal forma ----
+function DodajOpraviloModal({
+  onClose,
+  onSaved,
+  stranke,
+  defaultStrankaId,
+  username,
+}: {
+  onClose: () => void;
+  onSaved: () => void;
+  stranke: Post[];
+  defaultStrankaId?: number;
+  username: string;
+}) {
+  const [form, setForm] = useState({
+    datum_opravila: todayYMD(),
+    naslov_opravila: "",
+    opis_opravila: "",
+    cas_ure: "0.5",
+    custom_postavka: false,
+    urna_postavka: "35",
+    stranka_id: defaultStrankaId ? String(defaultStrankaId) : "",
+    placano: false,
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const set = (k: string, v: string | boolean) => setForm(f => ({ ...f, [k]: v }));
+
+  const handleSave = async () => {
+    if (!form.naslov_opravila.trim()) { setError("Naslov je obvezen"); return; }
+    if (!form.stranka_id) { setError("Izberi stranko"); return; }
+    setSaving(true); setError("");
+    try {
+      const res = await fetch("/api/opravilo/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...form, uporabnik: username, stranka_id: parseInt(form.stranka_id) }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Napaka");
+      onSaved();
+      onClose();
+    } catch (e) { setError(e instanceof Error ? e.message : "Napaka"); setSaving(false); }
+  };
+
+  const inputStyle: React.CSSProperties = {
+    width: "100%", padding: "9px 12px", borderRadius: 8, border: "1px solid #e5e7eb",
+    fontSize: 14, outline: "none", boxSizing: "border-box", background: "#fff",
+  };
+  const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 5 };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 9998, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ background: "#fff", borderRadius: 16, width: 520, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}>
+        {/* Header */}
+        <div style={{ padding: "20px 24px", borderBottom: "1px solid #f0f0f0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ fontWeight: 700, fontSize: 16, color: "#111" }}>Dodaj opravilo</div>
+          <button onClick={onClose} style={{ border: "none", background: "none", cursor: "pointer", color: "#aaa", display: "flex" }}>{icons.close}</button>
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
+
+          {/* Stranka */}
+          <div>
+            <label style={labelStyle}>Stranka *</label>
+            <select value={form.stranka_id} onChange={e => set("stranka_id", e.target.value)} style={inputStyle}>
+              <option value="">— Izberi stranko —</option>
+              {stranke.map(s => (
+                <option key={s.id} value={s.id}>{s.title.rendered}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Datum + Uporabnik */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div>
+              <label style={labelStyle}>Datum opravila</label>
+              <input type="date" value={`${form.datum_opravila.slice(0,4)}-${form.datum_opravila.slice(4,6)}-${form.datum_opravila.slice(6,8)}`}
+                onChange={e => set("datum_opravila", e.target.value.replace(/-/g, ""))}
+                style={inputStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>Uporabnik</label>
+              <input value={username} disabled style={{ ...inputStyle, background: "#f8f9fb", color: "#888" }} />
+            </div>
+          </div>
+
+          {/* Naslov */}
+          <div>
+            <label style={labelStyle}>Naslov opravila *</label>
+            <input value={form.naslov_opravila} onChange={e => set("naslov_opravila", e.target.value)}
+              placeholder="npr. Popravek kontaktnega obrazca" style={inputStyle} />
+          </div>
+
+          {/* Opis */}
+          <div>
+            <label style={labelStyle}>Opis</label>
+            <textarea value={form.opis_opravila} onChange={e => set("opis_opravila", e.target.value)}
+              placeholder="Podrobnejši opis opravljenega dela..." rows={3}
+              style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} />
+          </div>
+
+          {/* Čas + Postavka */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div>
+              <label style={labelStyle}>Porabljen čas</label>
+              <select value={form.cas_ure} onChange={e => set("cas_ure", e.target.value)} style={inputStyle}>
+                {CAS_OPTIONS.map(v => (
+                  <option key={v} value={v}>{v} {v === 1 ? "ura" : v < 5 ? "ure" : "ur"}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>Urna postavka</label>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input type="number" value={form.custom_postavka ? form.urna_postavka : "35"} disabled={!form.custom_postavka}
+                  onChange={e => set("urna_postavka", e.target.value)}
+                  style={{ ...inputStyle, background: form.custom_postavka ? "#fff" : "#f8f9fb" }} />
+                <span style={{ fontSize: 13, color: "#666", whiteSpace: "nowrap" }}>€/h</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Custom postavka checkbox */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div onClick={() => set("custom_postavka", !form.custom_postavka)}
+              style={{ width: 18, height: 18, borderRadius: 4, border: `2px solid ${form.custom_postavka ? BRAND : "#d1d5db"}`, background: form.custom_postavka ? BRAND : "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              {form.custom_postavka && <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>}
+            </div>
+            <label onClick={() => set("custom_postavka", !form.custom_postavka)} style={{ fontSize: 13, color: "#555", cursor: "pointer", userSelect: "none" }}>
+              Drugačna urna postavka
+            </label>
+          </div>
+
+          {/* Znesek preview */}
+          <div style={{ background: "#f8fafc", borderRadius: 10, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: 13, color: "#888" }}>Skupaj za to opravilo:</span>
+            <span style={{ fontSize: 18, fontWeight: 800, color: "#111" }}>
+              {(parseFloat(form.cas_ure) * (form.custom_postavka ? parseFloat(form.urna_postavka) || 0 : 35)).toLocaleString("sl-SI", { minimumFractionDigits: 2 })} €
+            </span>
+          </div>
+
+          {/* Plačano */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div onClick={() => set("placano", !form.placano)}
+              style={{ width: 18, height: 18, borderRadius: 4, border: `2px solid ${form.placano ? "#16a34a" : "#d1d5db"}`, background: form.placano ? "#16a34a" : "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              {form.placano && <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>}
+            </div>
+            <label onClick={() => set("placano", !form.placano)} style={{ fontSize: 13, color: "#555", cursor: "pointer", userSelect: "none" }}>Že plačano</label>
+          </div>
+
+          {error && <div style={{ color: "#dc2626", fontSize: 13, padding: "8px 12px", background: "#fef2f2", borderRadius: 8 }}>⚠️ {error}</div>}
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: "16px 24px", borderTop: "1px solid #f0f0f0", display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <button onClick={onClose} style={{ padding: "9px 18px", borderRadius: 8, border: "1px solid #e5e7eb", background: "#fff", fontSize: 14, cursor: "pointer", color: "#555" }}>Prekliči</button>
+          <button onClick={handleSave} disabled={saving}
+            style={{ padding: "9px 18px", borderRadius: 8, border: "none", background: saving ? "#99d6d8" : BRAND, color: "#fff", fontSize: 14, fontWeight: 600, cursor: saving ? "default" : "pointer" }}>
+            {saving ? "Shranjujem..." : "Shrani opravilo"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---- Opravila tabela (shared) ----
+function OpravilaTabela({
+  opravila,
+  loading,
+  error,
+  onRefetch,
+  onDodaj,
+  showStranka = true,
+}: {
+  opravila: Opravilo[];
+  loading: boolean;
+  error: string | null;
+  onRefetch: () => void;
+  onDodaj: () => void;
+  showStranka?: boolean;
+}) {
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [localPlacano, setLocalPlacano] = useState<Record<number, boolean>>({});
+
+  const getPlacano = (o: Opravilo) => localPlacano[o.id] !== undefined ? localPlacano[o.id] : o.acf?.placano;
+
+  const toggleSelect = (id: number) => {
+    setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  };
+  const toggleAll = () => {
+    setSelected(prev => prev.size === opravila.length ? new Set() : new Set(opravila.map(o => o.id)));
+  };
+
+  const updatePlacano = async (ids: number[], placano: boolean) => {
+    setBulkLoading(true);
+    try {
+      await fetch("/api/opravilo/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids, placano }),
+      });
+      const updates: Record<number, boolean> = {};
+      ids.forEach(id => updates[id] = placano);
+      setLocalPlacano(prev => ({ ...prev, ...updates }));
+      setSelected(new Set());
+    } finally { setBulkLoading(false); }
+  };
+
+  const skupajNeplačano = opravila.filter(o => !getPlacano(o))
+    .reduce((s, o) => s + (o.acf?.cas_ure || 0) * (o.acf?.custom_postavka ? (o.acf?.urna_postavka || 35) : 35), 0);
+
+  const skupajVse = opravila
+    .reduce((s, o) => s + (o.acf?.cas_ure || 0) * (o.acf?.custom_postavka ? (o.acf?.urna_postavka || 35) : 35), 0);
+
+  return (
+    <div>
+      {/* Toolbar */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          {selected.size > 0 && (
+            <>
+              <span style={{ fontSize: 13, color: "#555" }}>{selected.size} izbranih</span>
+              <button onClick={() => updatePlacano(Array.from(selected), true)} disabled={bulkLoading}
+                style={{ padding: "6px 14px", borderRadius: 7, border: "none", background: "#16a34a", color: "#fff", fontSize: 13, fontWeight: 500, cursor: "pointer" }}>
+                ✓ Označi kot plačano
+              </button>
+              <button onClick={() => updatePlacano(Array.from(selected), false)} disabled={bulkLoading}
+                style={{ padding: "6px 14px", borderRadius: 7, border: "1px solid #e5e7eb", background: "#fff", color: "#555", fontSize: 13, cursor: "pointer" }}>
+                Označi kot neplačano
+              </button>
+            </>
+          )}
+        </div>
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <div style={{ fontSize: 13, color: "#888" }}>
+            Neplačano: <strong style={{ color: "#dc2626" }}>{skupajNeplačano.toLocaleString("sl-SI", { minimumFractionDigits: 2 })} €</strong>
+            <span style={{ margin: "0 8px", color: "#ddd" }}>|</span>
+            Skupaj: <strong>{skupajVse.toLocaleString("sl-SI", { minimumFractionDigits: 2 })} €</strong>
+          </div>
+          <button onClick={onRefetch} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#aaa", display: "flex" }}>{icons.refresh}</button>
+          <button onClick={onDodaj}
+            style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: BRAND, color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+            + Dodaj opravilo
+          </button>
+        </div>
+      </div>
+
+      {/* Tabela */}
+      <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #f0f0f0", boxShadow: "0 1px 4px rgba(0,0,0,0.05)", overflow: "hidden" }}>
+        {loading && <div style={{ padding: 40, textAlign: "center", color: "#aaa", fontSize: 14 }}>Nalaganje opravil...</div>}
+        {error && <div style={{ padding: 20, color: "#dc2626", fontSize: 13, background: "#fef2f2" }}>⚠️ {error}</div>}
+        {!loading && !error && opravila.length === 0 && (
+          <div style={{ padding: 40, textAlign: "center", color: "#aaa", fontSize: 14 }}>Ni opravil za prikaz.</div>
+        )}
+        {!loading && opravila.length > 0 && (
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ background: "#fafafa" }}>
+                <th style={{ padding: "10px 16px", width: 36 }}>
+                  <div onClick={toggleAll}
+                    style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${selected.size === opravila.length ? BRAND : "#d1d5db"}`, background: selected.size === opravila.length ? BRAND : "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    {selected.size === opravila.length && <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>}
+                  </div>
+                </th>
+                {showStranka && <th style={thS}>Stranka</th>}
+                <th style={thS}>Datum</th>
+                <th style={thS}>Naslov</th>
+                <th style={thS}>Uporabnik</th>
+                <th style={thS}>Čas</th>
+                <th style={thS}>Znesek</th>
+                <th style={thS}>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {opravila.map((o, i) => {
+                const placano = getPlacano(o);
+                const postavka = o.acf?.custom_postavka ? (o.acf?.urna_postavka || 35) : 35;
+                const znesek = (o.acf?.cas_ure || 0) * postavka;
+                const isSelected = selected.has(o.id);
+                return (
+                  <tr key={o.id} style={{ borderBottom: i < opravila.length - 1 ? "1px solid #f7f7f7" : "none", background: isSelected ? "#f0fdf4" : "transparent" }}
+                    onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = "#fafafa"; }}
+                    onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = "transparent"; }}
+                  >
+                    <td style={{ padding: "12px 16px" }}>
+                      <div onClick={() => toggleSelect(o.id)}
+                        style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${isSelected ? BRAND : "#d1d5db"}`, background: isSelected ? BRAND : "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        {isSelected && <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>}
+                      </div>
+                    </td>
+                    {showStranka && (
+                      <td style={{ padding: "12px 16px", fontSize: 13, color: "#555" }}>
+                        {Array.isArray(o.acf?.stranka_rel) && o.acf.stranka_rel[0]?.post_title || "—"}
+                      </td>
+                    )}
+                    <td style={{ padding: "12px 16px", fontSize: 13, color: "#666", whiteSpace: "nowrap" }}>{fmtDate(o.acf?.datum_opravila)}</td>
+                    <td style={{ padding: "12px 16px" }}>
+                      <div style={{ fontWeight: 600, fontSize: 14, color: "#111" }}>{o.acf?.naslov_opravila || o.title.rendered}</div>
+                      {o.acf?.opis_opravila && <div style={{ fontSize: 12, color: "#888", marginTop: 2 }}>{o.acf.opis_opravila.slice(0, 80)}{o.acf.opis_opravila.length > 80 ? "..." : ""}</div>}
+                    </td>
+                    <td style={{ padding: "12px 16px", fontSize: 13, color: "#666" }}>{o.acf?.uporabnik || "—"}</td>
+                    <td style={{ padding: "12px 16px", fontSize: 13, color: "#333", whiteSpace: "nowrap" }}>
+                      {o.acf?.cas_ure} ur
+                      {o.acf?.custom_postavka && <div style={{ fontSize: 11, color: "#aaa" }}>{postavka} €/h</div>}
+                    </td>
+                    <td style={{ padding: "12px 16px", fontWeight: 700, fontSize: 14, color: "#111", whiteSpace: "nowrap" }}>
+                      {znesek.toLocaleString("sl-SI", { minimumFractionDigits: 2 })} €
+                    </td>
+                    <td style={{ padding: "12px 16px" }}>
+                      <button onClick={() => updatePlacano([o.id], !placano)}
+                        style={{ padding: "4px 10px", borderRadius: 16, border: "none", cursor: "pointer", fontWeight: 600, fontSize: 11,
+                          background: placano ? "#dcfce7" : "#fee2e2", color: placano ? "#16a34a" : "#dc2626" }}>
+                        {placano ? "✓ Plačano" : "Neplačano"}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const thS: React.CSSProperties = { padding: "10px 16px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#888", borderBottom: "1px solid #f0f0f0" };
+
+// ---- Opravila View (tab) ----
+function OpravilaView() {
+  const { opravila, loading, error, refetch } = useOpravila();
+  const { posts: stranke } = useWPData("stranka");
+  const username = useCurrentUser();
+  const [showModal, setShowModal] = useState(false);
+
+  return (
+    <div>
+      {showModal && (
+        <DodajOpraviloModal
+          onClose={() => setShowModal(false)}
+          onSaved={refetch}
+          stranke={stranke}
+          username={username}
+        />
+      )}
+      <OpravilaTabela
+        opravila={opravila}
+        loading={loading}
+        error={error}
+        onRefetch={refetch}
+        onDodaj={() => setShowModal(true)}
+        showStranka={true}
+      />
+    </div>
+  );
+}
+
+
+// ============================================================
 // MAIN DASHBOARD
 // ============================================================
 export default function Dashboard() {
   const [activeView, setActiveView] = useState<ActiveView>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const { countdown, resetTimer, logout } = useSessionTimeout();
 
   const navItems = [
     { id: "dashboard" as ActiveView, label: "Pregled", icon: icons.dashboard },
     { id: "narocnik" as ActiveView, label: "Naročniki", icon: icons.users },
     { id: "ponudba" as ActiveView, label: "Ponudbe", icon: icons.file },
     { id: "stranka" as ActiveView, label: "Stranke", icon: icons.building },
+    { id: "opravila" as ActiveView, label: "Opravila", icon: icons.task },
+    { id: "statistika" as ActiveView, label: "Statistika", icon: icons.chart },
+    { id: "finance" as ActiveView, label: "Finance", icon: icons.euro },
   ];
 
   const titles: Record<ActiveView, string> = {
-    dashboard: "Pregled",
-    narocnik: "Naročniki",
-    ponudba: "Ponudbe",
-    stranka: "Stranke",
+    dashboard: "Pregled", narocnik: "Naročniki", ponudba: "Ponudbe",
+    stranka: "Stranke", opravila: "Opravila", statistika: "Statistika", finance: "Finance",
   };
 
   return (
     <div style={{ display: "flex", height: "100vh", background: "#f8f9fb", fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+
+      {countdown !== null && (
+        <SessionWarning countdown={countdown} onStay={resetTimer} onLogout={logout} />
+      )}
       <aside style={{ width: sidebarOpen ? 240 : 68, minWidth: sidebarOpen ? 240 : 68, background: "#0f172a", display: "flex", flexDirection: "column", transition: "width 0.2s ease, min-width 0.2s ease", overflow: "hidden" }}>
         <div style={{ padding: "20px 18px", borderBottom: "1px solid #1e293b", display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 8, background: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", flexShrink: 0 }}>{icons.wp}</div>
+          <div style={{ width: 32, height: 32, borderRadius: 8, background: BRAND, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", flexShrink: 0 }}>{icons.wp}</div>
           {sidebarOpen && (
             <div>
-              <div style={{ color: "#fff", fontWeight: 700, fontSize: 15, lineHeight: 1 }}>WP Dashboard</div>
+              <div style={{ color: "#fff", fontWeight: 700, fontSize: 15, lineHeight: 1 }}>Kodnes admin</div>
               <div style={{ color: "#475569", fontSize: 11, marginTop: 2 }}>{WP_URL || "WordPress povezava ni nastavljena"}</div>
             </div>
           )}
@@ -587,7 +1506,7 @@ export default function Dashboard() {
             const active = activeView === item.id;
             return (
               <button key={item.id} onClick={() => setActiveView(item.id)}
-                style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "10px", borderRadius: 8, border: "none", cursor: "pointer", background: active ? "#1e40af" : "transparent", color: active ? "#fff" : "#94a3b8", fontSize: 14, fontWeight: active ? 600 : 400, marginBottom: 2, transition: "all 0.15s", textAlign: "left" }}
+                style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "10px", borderRadius: 8, border: "none", cursor: "pointer", background: active ? BRAND : "transparent", color: active ? "#fff" : "#94a3b8", fontSize: 14, fontWeight: active ? 600 : 400, marginBottom: 2, transition: "all 0.15s", textAlign: "left" }}
                 onMouseEnter={(e) => { if (!active) { e.currentTarget.style.background = "#1e293b"; e.currentTarget.style.color = "#fff"; } }}
                 onMouseLeave={(e) => { if (!active) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#94a3b8"; } }}
               >
@@ -616,10 +1535,12 @@ export default function Dashboard() {
             <span style={{ fontSize: 13, color: "#aaa" }}>WordPress CMS / </span>
             <span style={{ fontSize: 13, fontWeight: 600, color: "#111" }}>{titles[activeView]}</span>
           </div>
+          {/* Iskanje v headerju */}
+          <GlobalSearchBar />
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             {WP_URL && (
               <a href={WP_ADMIN_URL} target="_blank" rel="noreferrer"
-                style={{ fontSize: 13, color: "#3b82f6", textDecoration: "none", fontWeight: 500 }}>
+                style={{ fontSize: 13, color: "#00a4a7", textDecoration: "none", fontWeight: 500 }}>
                 WP Admin ↗
               </a>
             )}
@@ -631,10 +1552,18 @@ export default function Dashboard() {
           <div style={{ marginBottom: 22 }}>
             <h1 style={{ fontSize: 22, fontWeight: 700, color: "#111", margin: 0 }}>{titles[activeView]}</h1>
             <p style={{ fontSize: 13, color: "#888", marginTop: 4 }}>
-              {activeView === "dashboard" ? "Pregled vseh vsebin iz WordPress CMS" : `Vsi zapisi tipa "${titles[activeView]}" iz WordPressa`}
+              {activeView === "dashboard" ? "Pregled vseh vsebin iz WordPress CMS" :
+               activeView === "statistika" ? "Statistika strank po mesecih in storitvah" :
+               activeView === "finance" ? "Pregled prihodkov in finančnih podatkov" :
+               activeView === "opravila" ? "Vsa opravila in popravki za stranke" :
+               `Vsi zapisi tipa "${titles[activeView]}" iz WordPressa`}
             </p>
           </div>
-          {activeView === "dashboard" ? <DashboardOverview /> : <DataTable cptSlug={activeView} />}
+          {activeView === "dashboard" ? <DashboardOverview /> :
+           activeView === "statistika" ? <StatistikaView /> :
+           activeView === "finance" ? <FinanceView /> :
+           activeView === "opravila" ? <OpravilaView /> :
+           <DataTable cptSlug={activeView} />}
         </div>
       </main>
     </div>

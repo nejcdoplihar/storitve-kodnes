@@ -1,30 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
-// Rate limiting — v spominu (deluje na Vercel serverless)
 const attempts = new Map<string, { count: number; time: number }>();
 
 export async function POST(req: NextRequest) {
-  const ip =
-    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
 
-  // Preveri rate limit — max 5 poskusov v 15 minutah
   const now = Date.now();
   const record = attempts.get(ip);
   if (record && now - record.time < 15 * 60 * 1000) {
     if (record.count >= 5) {
       const waitMin = Math.ceil((15 * 60 * 1000 - (now - record.time)) / 60000);
-      return NextResponse.json(
-        { error: `Preveč poskusov. Počakaj ${waitMin} minut.` },
-        { status: 429 }
-      );
+      return NextResponse.json({ error: `Preveč poskusov. Počakaj ${waitMin} minut.` }, { status: 429 });
     }
     record.count++;
   } else {
     attempts.set(ip, { count: 1, time: now });
   }
 
-  const { username, password } = await req.json();
+  const { username, password, rememberMe } = await req.json();
 
   const validUser = process.env.DASHBOARD_USER || "admin";
   const validPass = process.env.DASHBOARD_PASSWORD || "geslo";
@@ -36,14 +30,13 @@ export async function POST(req: NextRequest) {
     (validUser2 && username === validUser2 && password === validPass2);
 
   if (ok) {
-    // Uspešna prijava — resetiraj rate limit
     attempts.delete(ip);
     const cookieStore = await cookies();
-    cookieStore.set("dashboard_auth", "1", {
+    cookieStore.set("dashboard_auth", username, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
-      maxAge: 60 * 60 * 24 * 7,
+      maxAge: rememberMe ? 60 * 60 * 24 * 30 : 60 * 60 * 24 * 7,
       path: "/",
     });
     return NextResponse.json({ ok: true });
