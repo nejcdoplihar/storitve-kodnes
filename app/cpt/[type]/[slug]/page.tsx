@@ -2,7 +2,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { OpravilaSection } from "./OpravilaSection";
+import { OpravilaSection, UrediStrankoButton } from "./OpravilaSection";
 import {
   getCPTPostBySlug,
   getAllCPTSlugs,
@@ -277,6 +277,13 @@ export default async function CPTSinglePage({ params }: Props) {
             dangerouslySetInnerHTML={{ __html: post.title.rendered }} />
           <div style={{ fontSize: 13, color: "#aaa", marginTop: 8 }}>Datum objave: {formatDate(post.date)}</div>
         </div>
+
+        {/* Uredi gumb za stranke */}
+        {type === "stranka" && (
+          <div style={{ marginBottom: 16 }}>
+            <UrediStrankoButton strankaId={post.id} acf={post.acf as Record<string, unknown>} />
+          </div>
+        )}
 
         {/* Logo — 1:1 square, small */}
         {imageUrl && (

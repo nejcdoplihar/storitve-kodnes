@@ -311,4 +311,204 @@ function DodajOpraviloModal({ onClose, onSaved, strankaId, username }: {
 }
 
 
-export { OpravilaSection };
+
+// ============================================================
+// UREDI STRANKO MODAL + BUTTON
+// ============================================================
+
+type StrankaACF = {
+  storitve?: string[];
+  domena_url?: string;
+  potek_storitev?: string;
+  stanje_storitve?: boolean;
+  strosek?: number;
+  strosek_obracun?: string[];
+  opombe?: string;
+};
+
+const fldStyle: React.CSSProperties = {
+  width: "100%", padding: "9px 12px", borderRadius: 8, border: "1px solid #e5e7eb",
+  fontSize: 14, outline: "none", boxSizing: "border-box", background: "#fff", fontFamily: "inherit",
+};
+
+const storitveOpcije = [
+  { slug: "domena", label: "Domena" },
+  { slug: "gostovanje", label: "Gostovanje" },
+  { slug: "dom_gos", label: "Domena & gostovanje" },
+  { slug: "vzdrzevanje", label: "Vzdrževanje" },
+];
+
+const obracunOpcije = [
+  { slug: "letno", label: "Letno" },
+  { slug: "mesecno", label: "Mesečno" },
+  { slug: "trimesecno", label: "Trimesečno" },
+  { slug: "polletno", label: "Polletno" },
+  { slug: "po_dogovoru", label: "Po dogovoru" },
+];
+
+function UrediStrankoModal({ strankaId, acf, onClose, onSaved }: {
+  strankaId: number;
+  acf: StrankaACF;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [form, setForm] = useState({
+    storitve: acf.storitve || [],
+    domena_url: acf.domena_url || "",
+    potek_storitev: acf.potek_storitev || "",
+    stanje_storitve: acf.stanje_storitve !== false,
+    strosek: acf.strosek ? String(acf.strosek) : "",
+    strosek_obracun: acf.strosek_obracun || ["letno"],
+    opombe: acf.opombe || "",
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
+
+  const set = (k: string, v: unknown) => setForm(f => ({ ...f, [k]: v }));
+
+  const toggleStoritev = (slug: string) => {
+    set("storitve", form.storitve.includes(slug)
+      ? form.storitve.filter((s: string) => s !== slug)
+      : [...form.storitve, slug]);
+  };
+
+  const handleSave = async () => {
+    setSaving(true); setError("");
+    try {
+      const res = await fetch("/api/stranka/update", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: strankaId,
+          fields: {
+            ...form,
+            strosek: form.strosek ? parseFloat(form.strosek) : 0,
+          }
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Napaka");
+      setSuccess(true);
+      setTimeout(() => { onSaved(); onClose(); }, 800);
+    } catch (e) { setError(e instanceof Error ? e.message : "Napaka"); setSaving(false); }
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 9990, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 520, maxHeight: "90vh", display: "flex", flexDirection: "column", boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}>
+        {/* Header */}
+        <div style={{ padding: "18px 24px", borderBottom: "1px solid #f0f0f0", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+          <div style={{ fontWeight: 700, fontSize: 16, color: "#111" }}>Uredi stranko</div>
+          <button onClick={onClose} style={{ border: "none", background: "none", cursor: "pointer", color: "#aaa", display: "flex", padding: 4 }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: "20px 24px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 14 }}>
+
+          {/* Storitve */}
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 8 }}>Storitev</label>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {storitveOpcije.map(s => (
+                <div key={s.slug} onClick={() => toggleStoritev(s.slug)}
+                  style={{ padding: "6px 14px", borderRadius: 20, fontSize: 13, cursor: "pointer", fontWeight: 500, border: `1.5px solid ${form.storitve.includes(s.slug) ? BRAND : "#e5e7eb"}`, background: form.storitve.includes(s.slug) ? `${BRAND}12` : "#fff", color: form.storitve.includes(s.slug) ? BRAND : "#555" }}>
+                  {s.label}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Domena + Potek */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 5 }}>Domena URL</label>
+              <input value={form.domena_url} onChange={e => set("domena_url", e.target.value)} placeholder="https://vetta.si" style={fldStyle} />
+            </div>
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 5 }}>Potek storitev</label>
+              <input type="date"
+                value={form.potek_storitev ? `${form.potek_storitev.slice(0,4)}-${form.potek_storitev.slice(4,6)}-${form.potek_storitev.slice(6,8)}` : ""}
+                onChange={e => set("potek_storitev", e.target.value.replace(/-/g, ""))}
+                style={fldStyle} />
+            </div>
+          </div>
+
+          {/* Strosek + Obracun */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 5 }}>Strošek (€)</label>
+              <input type="number" value={form.strosek} onChange={e => set("strosek", e.target.value)} placeholder="150" style={fldStyle} />
+            </div>
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 5 }}>Obračun</label>
+              <select value={form.strosek_obracun[0] || "letno"} onChange={e => set("strosek_obracun", [e.target.value])} style={fldStyle}>
+                {obracunOpcije.map(o => <option key={o.slug} value={o.slug}>{o.label}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* Stanje */}
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 8 }}>Stanje storitve</label>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div onClick={() => set("stanje_storitve", !form.stanje_storitve)}
+                style={{ width: 40, height: 22, borderRadius: 11, background: form.stanje_storitve ? BRAND : "#d1d5db", cursor: "pointer", position: "relative", transition: "background 0.2s", flexShrink: 0 }}>
+                <div style={{ position: "absolute", top: 3, left: form.stanje_storitve ? 21 : 3, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left 0.2s" }} />
+              </div>
+              <span style={{ fontSize: 13, color: "#555" }}>{form.stanje_storitve ? "Aktivna" : "Neaktivna"}</span>
+            </div>
+          </div>
+
+          {/* Opombe */}
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 5 }}>Opombe</label>
+            <textarea value={form.opombe} onChange={e => set("opombe", e.target.value)} rows={2}
+              placeholder="Interne opombe..." style={{ ...fldStyle, resize: "vertical" }} />
+          </div>
+
+          {error && <div style={{ color: "#dc2626", fontSize: 13, padding: "8px 12px", background: "#fef2f2", borderRadius: 8 }}>⚠️ {error}</div>}
+          {success && <div style={{ color: "#16a34a", fontSize: 13, padding: "8px 12px", background: "#dcfce7", borderRadius: 8 }}>✓ Shranjeno!</div>}
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: "14px 24px", borderTop: "1px solid #f0f0f0", display: "flex", gap: 10, justifyContent: "flex-end", flexShrink: 0 }}>
+          <button onClick={onClose} style={{ padding: "9px 18px", borderRadius: 8, border: "1px solid #e5e7eb", background: "#fff", fontSize: 14, cursor: "pointer", color: "#555" }}>Prekliči</button>
+          <button onClick={handleSave} disabled={saving || success}
+            style={{ padding: "9px 20px", borderRadius: 8, border: "none", background: success ? "#16a34a" : saving ? "#99d6d8" : BRAND, color: "#fff", fontSize: 14, fontWeight: 600, cursor: (saving || success) ? "default" : "pointer" }}>
+            {success ? "✓ Shranjeno" : saving ? "Shranjujem..." : "Shrani spremembe"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function UrediStrankoButton({ strankaId, acf }: { strankaId: number; acf: StrankaACF }) {
+  const [open, setOpen] = useState(false);
+  const [localAcf, setLocalAcf] = useState(acf);
+
+  return (
+    <>
+      {open && (
+        <UrediStrankoModal
+          strankaId={strankaId}
+          acf={localAcf}
+          onClose={() => setOpen(false)}
+          onSaved={() => {
+            setLocalAcf(f => ({ ...f })); // trigger re-render
+            setOpen(false);
+          }}
+        />
+      )}
+      <button onClick={() => setOpen(true)}
+        style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: BRAND, color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        Uredi
+      </button>
+    </>
+  );
+}
+
+export { OpravilaSection, UrediStrankoButton };
