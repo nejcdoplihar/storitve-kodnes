@@ -1517,6 +1517,103 @@ function todayYMD(): string {
 // Cas options: 0.5, 1, 1.5 ... 16
 const CAS_OPTIONS = Array.from({ length: 32 }, (_, i) => (i + 1) * 0.5);
 
+function StrankaSearchSelect({
+  stranke,
+  value,
+  onChange,
+}: {
+  stranke: Post[];
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const [dropPos, setDropPos] = useState({ top: 0, left: 0, width: 0 });
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const openDropdown = () => {
+    if (inputRef.current) {
+      const rect = inputRef.current.getBoundingClientRect();
+      setDropPos({ top: rect.bottom + 6, left: rect.left, width: rect.width });
+    }
+    setOpen(true);
+    setQuery("");
+  };
+
+  const selectedStranka = stranke.find((s) => String(s.id) === value);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const sorted = [...stranke].sort((a, b) =>
+      a.title.rendered.localeCompare(b.title.rendered, "sl")
+    );
+    if (!q) return sorted;
+    return sorted.filter((s) => {
+      const title = s.title.rendered.toLowerCase();
+      const domena = String((s.acf as Record<string, unknown>)?.domena_url || "").toLowerCase();
+      return title.includes(q) || domena.includes(q);
+    });
+  }, [stranke, query]);
+
+  return (
+    <div ref={wrapRef} style={{ position: "relative" }}>
+      <input
+        ref={inputRef}
+        value={open ? query : selectedStranka?.title.rendered || ""}
+        onFocus={openDropdown}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          if (!open) openDropdown();
+          if (value) onChange("");
+        }}
+        placeholder="Iskanje stranke..."
+        style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid #e5e7eb", fontSize: 14, outline: "none", boxSizing: "border-box", background: "#fff" }}
+      />
+      {open && (
+        <div style={{
+          position: "fixed",
+          top: dropPos.top,
+          left: dropPos.left,
+          width: dropPos.width,
+          background: "#fff",
+          border: "1px solid #e5e7eb",
+          borderRadius: 10,
+          boxShadow: "0 12px 32px rgba(0,0,0,0.12)",
+          maxHeight: 280,
+          overflowY: "auto",
+          zIndex: 99999,
+        }}>
+          {filtered.length === 0 ? (
+            <div style={{ padding: "12px 14px", fontSize: 13, color: "#888" }}>Ni rezultatov</div>
+          ) : (
+            filtered.map((s, i) => (
+              <button key={s.id} type="button"
+                onClick={() => { onChange(String(s.id)); setQuery(""); setOpen(false); }}
+                style={{ width: "100%", textAlign: "left", padding: "10px 14px", border: "none", background: "#fff", cursor: "pointer", fontSize: 14, color: "#111", borderBottom: i < filtered.length - 1 ? "1px solid #f3f4f6" : "none", whiteSpace: "normal", wordBreak: "break-word" }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = "#f0fdfc"; e.currentTarget.style.color = BRAND; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.color = "#111"; }}
+              >
+                {s.title.rendered}
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ---- Modal forma ----
 function DodajOpraviloModal({
   onClose,
@@ -1565,11 +1662,13 @@ function DodajOpraviloModal({
 
   const inputStyle: React.CSSProperties = {
     width: "100%",
-    padding: "10px 12px",
-    borderRadius: 10,
+    padding: "9px 12px",
+    borderRadius: 8,
     border: "1px solid #e5e7eb",
-    marginTop: 6,
     fontSize: 14,
+    outline: "none",
+    boxSizing: "border-box" as const,
+    background: "#fff",
   };
 
   const primaryButton: React.CSSProperties = {
@@ -1594,26 +1693,25 @@ function DodajOpraviloModal({
   const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 5 };
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 9998, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ background: "#fff", borderRadius: 16, width: 520, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 9998, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: "16px" }}>
+      <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 520, maxHeight: "90vh", display: "flex", flexDirection: "column", boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}>
         {/* Header */}
-        <div style={{ padding: "20px 24px", borderBottom: "1px solid #f0f0f0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ padding: "20px 24px", borderBottom: "1px solid #f0f0f0", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
           <div style={{ fontWeight: 700, fontSize: 16, color: "#111" }}>Dodaj opravilo</div>
           <button onClick={onClose} style={{ border: "none", background: "none", cursor: "pointer", color: "#aaa", display: "flex" }}>{icons.close}</button>
         </div>
 
-        {/* Body */}
-        <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
+        {/* Body — overflowX visible so dropdown isn't clipped */}
+        <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16, overflowY: "auto" }}>
 
           {/* Stranka */}
           <div>
             <label style={labelStyle}>Stranka *</label>
-            <select value={form.stranka_id} onChange={e => set("stranka_id", e.target.value)} style={profileInputStyle}>
-              <option value="">— Izberi stranko —</option>
-              {stranke.map(s => (
-                <option key={s.id} value={s.id}>{s.title.rendered}</option>
-              ))}
-            </select>
+            <StrankaSearchSelect
+              stranke={stranke}
+              value={form.stranka_id}
+              onChange={(val) => set("stranka_id", val)}
+            />
           </div>
 
           {/* Datum + Uporabnik */}
@@ -1678,7 +1776,16 @@ function DodajOpraviloModal({
           </div>
 
           {/* Znesek preview */}
-          <div style={{ background: "#f8fafc", borderRadius: 10, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div
+              style={{
+                background: "#fff",
+                borderRadius: 16,
+                width: "min(720px, 92vw)",
+                maxHeight: "90vh",
+                overflowY: "auto",
+                boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
+              }}
+            >
             <span style={{ fontSize: 13, color: "#888" }}>Skupaj za to opravilo:</span>
             <span style={{ fontSize: 18, fontWeight: 800, color: "#111" }}>
               {(parseFloat(form.cas_ure) * (form.custom_postavka ? parseFloat(form.urna_postavka) || 0 : 35)).toLocaleString("sl-SI", { minimumFractionDigits: 2 })} €
@@ -1877,7 +1984,7 @@ const thS: React.CSSProperties = { padding: "10px 16px", textAlign: "left", font
 // ---- Opravila View (tab) ----
 function OpravilaView() {
   const { opravila, loading, error, refetch } = useOpravila();
-  const { posts: stranke } = useWPData("stranka");
+  const { stranke, loading: strankeLoading } = useStranke();
   const username = useCurrentUser();
   const [showModal, setShowModal] = useState(false);
 
