@@ -511,4 +511,4 @@ export function UrediStrankoButton({ strankaId, acf }: { strankaId: number; acf:
   );
 }
 
-export { OpravilaSection, UrediStrankoButton };
+export { OpravilaSection };
