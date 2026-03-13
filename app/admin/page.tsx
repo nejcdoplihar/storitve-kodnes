@@ -367,8 +367,26 @@ function DataTable({ cptSlug, onAdd }: { cptSlug: string; onAdd?: () => void }) 
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const perPage = 20;
+  const [deleteTarget, setDeleteTarget] = useState<{ id: number; naziv: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const { posts, loading, error, total, totalPages, refetch } = useWPData(cptSlug, page, perPage);
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const res = await fetch("/api/cpt/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: deleteTarget.id, cptSlug }),
+      });
+      if (res.ok) { setDeleteTarget(null); refetch(); }
+      else { const d = await res.json(); alert(d.error || "Napaka pri brisanju"); }
+    } finally { setDeleting(false); }
+  };
+
+  const DELETABLE = ["narocnik", "stranka", "ponudba"];
 
   useEffect(() => {
     setPage(1);
@@ -384,6 +402,15 @@ function DataTable({ cptSlug, onAdd }: { cptSlug: string; onAdd?: () => void }) 
   const to = total === 0 ? 0 : Math.min(page * perPage, total);
 
   return (
+    <>
+    {deleteTarget && (
+      <ConfirmDeleteDialog
+        naziv={deleteTarget.naziv}
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteTarget(null)}
+        deleting={deleting}
+      />
+    )}
     <div
       style={{
         background: "#fff",
@@ -522,20 +549,25 @@ function DataTable({ cptSlug, onAdd }: { cptSlug: string; onAdd?: () => void }) 
                   </td>
 
                   <td style={{ padding: "14px 20px" }}>
-                    <a
-                      href={`/cpt/${cptSlug}/${post.slug}`}
-                      style={{
-                        fontSize: 13,
-                        color: "#00a4a7",
-                        fontWeight: 500,
-                        textDecoration: "none",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 2,
-                      }}
-                    >
-                      Odpri {icons.arrow}
-                    </a>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <a
+                        href={`/cpt/${cptSlug}/${post.slug}`}
+                        style={{ fontSize: 13, color: "#00a4a7", fontWeight: 500, textDecoration: "none", display: "flex", alignItems: "center", gap: 2 }}
+                      >
+                        Odpri {icons.arrow}
+                      </a>
+                      {DELETABLE.includes(cptSlug) && (
+                        <button
+                          onClick={() => setDeleteTarget({ id: post.id, naziv: post.title.rendered.replace(/<[^>]*>/g, "") })}
+                          title="Premakni v koš"
+                          style={{ border: "none", background: "transparent", cursor: "pointer", color: "#d1d5db", padding: 4, display: "flex", borderRadius: 6 }}
+                          onMouseEnter={e => (e.currentTarget.style.color = "#dc2626")}
+                          onMouseLeave={e => (e.currentTarget.style.color = "#d1d5db")}
+                        >
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               );
@@ -624,6 +656,7 @@ function DataTable({ cptSlug, onAdd }: { cptSlug: string; onAdd?: () => void }) 
         </div>
       )}
     </div>
+    </>
   );
 }
 
@@ -2816,6 +2849,43 @@ function NovaPonudbaModal({ onClose, onSaved, stranke }: {
       </FormField>
       <ErrorMsg msg={error} />
     </ModalWrapper>
+  );
+}
+
+
+// ============================================================
+// POTRDITVENI DIALOG ZA BRISANJE
+// ============================================================
+function ConfirmDeleteDialog({ naziv, onConfirm, onCancel, deleting }: {
+  naziv: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  deleting: boolean;
+}) {
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 10000, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <div style={{ background: "#fff", borderRadius: 14, width: "100%", maxWidth: 400, boxShadow: "0 20px 60px rgba(0,0,0,0.2)", overflow: "hidden" }}>
+        <div style={{ padding: "24px 24px 16px" }}>
+          <div style={{ width: 44, height: 44, borderRadius: 12, background: "#fef2f2", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+          </div>
+          <div style={{ fontWeight: 700, fontSize: 16, color: "#111", marginBottom: 8 }}>Premakni v koš?</div>
+          <div style={{ fontSize: 14, color: "#666", lineHeight: 1.5 }}>
+            <strong style={{ color: "#111" }}>{naziv}</strong> bo premaknjen v WordPress koš. Obnovitev je možna iz WP admina.
+          </div>
+        </div>
+        <div style={{ padding: "12px 24px 20px", display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <button onClick={onCancel} disabled={deleting}
+            style={{ padding: "9px 18px", borderRadius: 8, border: "1px solid #e5e7eb", background: "#fff", fontSize: 14, cursor: "pointer", color: "#555" }}>
+            Prekliči
+          </button>
+          <button onClick={onConfirm} disabled={deleting}
+            style={{ padding: "9px 18px", borderRadius: 8, border: "none", background: deleting ? "#fca5a5" : "#dc2626", color: "#fff", fontSize: 14, fontWeight: 600, cursor: deleting ? "default" : "pointer" }}>
+            {deleting ? "Brišem..." : "Premakni v koš"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
