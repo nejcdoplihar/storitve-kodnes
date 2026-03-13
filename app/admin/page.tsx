@@ -376,7 +376,7 @@ function DataTable({ cptSlug, onAdd }: { cptSlug: string; onAdd?: () => void }) 
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      const res = await fetch("/api/cpt/delete", {
+      const res = await fetch("/api/delete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: deleteTarget.id, cptSlug }),
