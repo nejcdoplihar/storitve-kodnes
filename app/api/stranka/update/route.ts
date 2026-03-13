@@ -1,36 +1,110 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { revalidatePath } from "next/cache";
 
 const WP_URL = (process.env.NEXT_PUBLIC_WORDPRESS_URL || "").replace(/\/$/, "");
 const WP_USER = process.env.WP_APP_USER || "";
 const WP_PASS = process.env.WP_APP_PASSWORD || "";
-const credentials = () => Buffer.from(`${WP_USER}:${WP_PASS}`).toString("base64");
+
+const credentials = () =>
+  Buffer.from(`${WP_USER}:${WP_PASS}`).toString("base64");
 
 export async function POST(req: NextRequest) {
   const cookieStore = await cookies();
+
   if (!cookieStore.get("dashboard_auth")?.value) {
     return NextResponse.json({ error: "Ni avtorizacije" }, { status: 401 });
   }
 
-  const body = await req.json();
-  const { id, fields } = body;
-  // fields: Partial<{ stanje_storitve, potek_storitev, strosek, strosek_obracun, domena_url, opombe, storitve }>
+  try {
+    const body = await req.json();
 
-  if (!id) return NextResponse.json({ error: "Manjka ID" }, { status: 400 });
+    const {
+      id,
+      title,
+      storitve,
+      domena_url,
+      potek_storitev,
+      stanje_storitve,
+      strosek,
+      strosek_obracun,
+      opombe,
+      logo_id,
+    } = body;
 
-  const res = await fetch(`${WP_URL}/wp-json/wp/v2/stranka/${id}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Basic ${credentials()}`,
-    },
-    body: JSON.stringify({ acf: fields }),
-  });
+    if (!id) {
+      return NextResponse.json({ error: "Manjka ID" }, { status: 400 });
+    }
 
-  if (!res.ok) {
-    const err = await res.text();
-    return NextResponse.json({ error: `WP napaka: ${err}` }, { status: 500 });
+    const wpPayload = {
+      ...(title ? { title: String(title).trim() } : {}),
+      ...(logo_id !== undefined
+        ? { featured_media: logo_id ? Number(logo_id) : 0 }
+        : {}),
+      acf: {
+        storitve: Array.isArray(storitve) ? storitve : [],
+        domena_url: domena_url || "",
+        potek_storitev: potek_storitev || "",
+        stanje_storitve: Boolean(stanje_storitve),
+        strosek:
+          strosek !== "" && strosek !== null && strosek !== undefined
+            ? Number(strosek)
+            : "",
+        strosek_obracun: Array.isArray(strosek_obracun) ? strosek_obracun : [],
+        opombe: opombe || "",
+      },
+    };
+
+    const wpRes = await fetch(`${WP_URL}/wp-json/wp/v2/stranka/${id}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Basic ${credentials()}`,
+      },
+      body: JSON.stringify(wpPayload),
+      cache: "no-store",
+    });
+
+    const raw = await wpRes.text();
+
+    let wpData: any;
+    try {
+      wpData = JSON.parse(raw);
+    } catch {
+      wpData = raw;
+    }
+
+    if (!wpRes.ok) {
+      return NextResponse.json(
+        {
+          error: `WP napaka: ${
+            typeof wpData === "string" ? wpData : JSON.stringify(wpData)
+          }`,
+        },
+        { status: 500 }
+      );
+    }
+
+    revalidatePath("/admin");
+    revalidatePath("/cpt/stranka");
+
+    if (wpData?.slug) {
+      revalidatePath(`/cpt/stranka/${wpData.slug}`);
+    }
+
+    return NextResponse.json({
+      ok: true,
+      id: wpData?.id,
+      slug: wpData?.slug,
+      wpData,
+    });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error ? error.message : "Napaka pri urejanju stranke",
+      },
+      { status: 500 }
+    );
   }
-
-  return NextResponse.json({ ok: true });
 }

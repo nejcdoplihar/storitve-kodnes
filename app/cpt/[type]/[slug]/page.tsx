@@ -11,6 +11,9 @@ import {
 } from "@/lib/wordpress";
 import { CPT_CONFIGS } from "@/types/wordpress";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const BRAND = "#00a4a7";
 
 interface Props {
@@ -281,7 +284,7 @@ export default async function CPTSinglePage({ params }: Props) {
         {/* Uredi gumb za stranke */}
         {type === "stranka" && (
           <div style={{ marginBottom: 16 }}>
-            <UrediStrankoButton strankaId={post.id} acf={post.acf as Record<string, unknown>} />
+            <UrediStrankoButton strankaId={post.id} />
           </div>
         )}
 
