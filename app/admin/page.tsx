@@ -217,7 +217,7 @@ function useWPData(cptSlug: string, page = 1, perPage = 20) {
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!WP_URL) {
       setError("NEXT_PUBLIC_WORDPRESS_URL ni nastavljen.");
       setLoading(false);
@@ -247,13 +247,71 @@ function useWPData(cptSlug: string, page = 1, perPage = 20) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [cptSlug, page, perPage]);
 
   useEffect(() => {
     fetchData();
-  }, [cptSlug, page, perPage]);
+  }, [fetchData]);
 
   return { posts, loading, error, total, totalPages, refetch: fetchData };
+}
+
+function useAllWPData(cptSlug: string, enabled: boolean) {
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchData = useCallback(async () => {
+    if (!WP_URL || !enabled) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const baseUrl = `${WP_URL.replace(/\/$/, "")}/wp-json/wp/v2/${cptSlug}`;
+      let currentPage = 1;
+      let totalPages = 1;
+      let allPosts: Post[] = [];
+
+      do {
+        const res = await fetch(
+          `${baseUrl}?per_page=100&page=${currentPage}&_embed=1`,
+          { cache: "no-store" }
+        );
+
+        if (!res.ok) {
+          throw new Error(`${res.status} ${res.statusText}`);
+        }
+
+        const data = await res.json();
+        totalPages = Number(res.headers.get("X-WP-TotalPages") || 1);
+
+        if (Array.isArray(data)) {
+          allPosts = [...allPosts, ...data];
+        }
+
+        currentPage++;
+      } while (currentPage <= totalPages);
+
+      setPosts(allPosts);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Napaka pri nalaganju podatkov.");
+    } finally {
+      setLoading(false);
+    }
+  }, [cptSlug, enabled]);
+
+  useEffect(() => {
+    if (enabled) {
+      fetchData();
+    } else {
+      setPosts([]);
+      setLoading(false);
+      setError(null);
+    }
+  }, [enabled, fetchData]);
+
+  return { posts, loading, error, refetch: fetchData };
 }
 
 function useStranke() {
@@ -372,19 +430,17 @@ function DataTable({ cptSlug, onAdd }: { cptSlug: string; onAdd?: () => void }) 
 
   const { posts, loading, error, total, totalPages, refetch } = useWPData(cptSlug, page, perPage);
 
-  const handleDelete = async () => {
-    if (!deleteTarget) return;
-    setDeleting(true);
-    try {
-      const res = await fetch("/api/delete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: deleteTarget.id, cptSlug }),
-      });
-      if (res.ok) { setDeleteTarget(null); refetch(); }
-      else { const d = await res.json(); alert(d.error || "Napaka pri brisanju"); }
-    } finally { setDeleting(false); }
-  };
+  const isSearching = search.trim().length > 0;
+
+  const {
+    posts: allPosts,
+    loading: allLoading,
+    error: allError,
+    refetch: refetchAll,
+  } = useAllWPData(cptSlug, isSearching);
+
+  const effectiveLoading = isSearching ? allLoading : loading;
+  const effectiveError = isSearching ? allError : error;
 
   const DELETABLE = ["narocnik", "stranka", "ponudba"];
 
@@ -393,269 +449,358 @@ function DataTable({ cptSlug, onAdd }: { cptSlug: string; onAdd?: () => void }) 
   }, [cptSlug, search]);
 
   const filtered = useMemo(() => {
-    return posts.filter((p) =>
-      p.title.rendered.toLowerCase().includes(search.toLowerCase())
-    );
-  }, [posts, search]);
+    const source = isSearching ? allPosts : posts;
+    const q = search.trim().toLowerCase();
+
+    if (!q) return source;
+
+    return source.filter((p) => {
+      const title = p.title.rendered.toLowerCase();
+      const acfText = p.acf ? JSON.stringify(p.acf).toLowerCase() : "";
+      return title.includes(q) || acfText.includes(q);
+    });
+  }, [isSearching, allPosts, posts, search]);
+
+  const handleRefresh = async () => {
+    if (isSearching) {
+      await refetchAll();
+    } else {
+      await refetch();
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+
+    setDeleting(true);
+
+    try {
+      const res = await fetch("/api/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: deleteTarget.id, cptSlug }),
+      });
+
+      if (!res.ok) {
+        const d = await res.json();
+        alert(d.error || "Napaka pri brisanju");
+        return;
+      }
+
+      setDeleteTarget(null);
+
+      if (isSearching) {
+        await refetchAll();
+      } else {
+        await refetch();
+      }
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const from = total === 0 ? 0 : (page - 1) * perPage + 1;
   const to = total === 0 ? 0 : Math.min(page * perPage, total);
 
   return (
     <>
-    {deleteTarget && (
-      <ConfirmDeleteDialog
-        naziv={deleteTarget.naziv}
-        onConfirm={handleDelete}
-        onCancel={() => setDeleteTarget(null)}
-        deleting={deleting}
-      />
-    )}
-    <div
-      style={{
-        background: "#fff",
-        borderRadius: 14,
-        border: "1px solid #f0f0f0",
-        boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
-        overflow: "hidden",
-      }}
-    >
+      {deleteTarget && (
+        <ConfirmDeleteDialog
+          naziv={deleteTarget.naziv}
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteTarget(null)}
+          deleting={deleting}
+        />
+      )}
+
       <div
         style={{
-          padding: "14px 20px",
-          borderBottom: "1px solid #f5f5f5",
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
+          background: "#fff",
+          borderRadius: 14,
+          border: "1px solid #f0f0f0",
+          boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+          overflow: "hidden",
         }}
       >
-        <div style={{ color: "#aaa" }}>{icons.search}</div>
-
-        <input
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setPage(1);
-          }}
-          placeholder="Iskanje..."
-          style={{
-            border: "none",
-            outline: "none",
-            fontSize: 14,
-            color: "#333",
-            background: "transparent",
-            flex: 1,
-          }}
-        />
-
-        <span style={{ fontSize: 12, color: "#aaa" }}>
-          {search.trim()
-            ? `${filtered.length} rezultatov na tej strani`
-            : `Prikaz ${from}–${to} od ${total} zapisov`}
-        </span>
-
-        <button
-          onClick={refetch}
-          style={{
-            border: "none",
-            background: "transparent",
-            cursor: "pointer",
-            color: "#aaa",
-            display: "flex",
-            alignItems: "center",
-          }}
-          title="Osveži"
-        >
-          {icons.refresh}
-        </button>
-        {onAdd && (
-          <button onClick={onAdd}
-            style={{ padding: "7px 14px", borderRadius: 8, border: "none", background: BRAND, color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap" }}>
-            + Dodaj
-          </button>
-        )}
-      </div>
-
-      {error && (
-        <div style={{ padding: 20, background: "#fef2f2", color: "#dc2626", fontSize: 13 }}>
-          ⚠️ Napaka: {error}
-        </div>
-      )}
-
-      {loading && (
-        <div style={{ padding: 40, textAlign: "center", color: "#aaa", fontSize: 14 }}>
-          Nalaganje iz WordPressa...
-        </div>
-      )}
-
-      {!loading && !error && (
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr style={{ background: "#fafafa" }}>
-              {["Naslov", "Datum", "Status", ""].map((h) => (
-                <th
-                  key={h}
-                  style={{
-                    padding: "11px 20px",
-                    textAlign: "left",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: "#888",
-                    borderBottom: "1px solid #f0f0f0",
-                  }}
-                >
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-
-          <tbody>
-            {filtered.map((post, i) => {
-              const acfPreview = getAcfPreview(post.acf);
-
-              return (
-                <tr
-                  key={post.id}
-                  style={{
-                    borderBottom: i < filtered.length - 1 ? "1px solid #f7f7f7" : "none",
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = "#fafafa")}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                >
-                  <td style={{ padding: "14px 20px" }}>
-                    <div
-                      style={{ fontWeight: 600, fontSize: 14, color: "#111" }}
-                      dangerouslySetInnerHTML={{ __html: post.title.rendered }}
-                    />
-                    {acfPreview.length > 0 && (
-                      <div style={{ display: "flex", gap: 12, marginTop: 4, flexWrap: "wrap" }}>
-                        {acfPreview.map(([key, val]) => (
-                          <span key={key} style={{ fontSize: 11, color: "#888" }}>
-                            <span style={{ color: "#bbb" }}>{key}: </span>
-                            {String(val)}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </td>
-
-                  <td style={{ padding: "14px 20px", fontSize: 13, color: "#666" }}>
-                    {formatDate(post.date)}
-                  </td>
-
-                  <td style={{ padding: "14px 20px" }}>
-                    <StatusBadge status={post.status} />
-                  </td>
-
-                  <td style={{ padding: "14px 20px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <a
-                        href={`/cpt/${cptSlug}/${post.slug}`}
-                        style={{ fontSize: 13, color: "#00a4a7", fontWeight: 500, textDecoration: "none", display: "flex", alignItems: "center", gap: 2 }}
-                      >
-                        Odpri {icons.arrow}
-                      </a>
-                      {DELETABLE.includes(cptSlug) && (
-                        <button
-                          onClick={() => setDeleteTarget({ id: post.id, naziv: post.title.rendered.replace(/<[^>]*>/g, "") })}
-                          title="Premakni v koš"
-                          style={{ border: "none", background: "transparent", cursor: "pointer", color: "#d1d5db", padding: 4, display: "flex", borderRadius: 6 }}
-                          onMouseEnter={e => (e.currentTarget.style.color = "#dc2626")}
-                          onMouseLeave={e => (e.currentTarget.style.color = "#d1d5db")}
-                        >
-                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      )}
-
-      {!loading && !error && filtered.length === 0 && (
-        <div style={{ padding: 40, textAlign: "center", color: "#aaa", fontSize: 14 }}>
-          {search ? `Ni rezultatov za "${search}"` : "Ni zapisov"}
-        </div>
-      )}
-
-      {!loading && !error && !search.trim() && totalPages > 1 && (
         <div
           style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
             padding: "14px 20px",
-            borderTop: "1px solid #f0f0f0",
-            background: "#fff",
+            borderBottom: "1px solid #f5f5f5",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
           }}
         >
-          <button
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page === 1}
-            style={{
-              padding: "8px 12px",
-              borderRadius: 8,
-              border: "1px solid #e5e7eb",
-              background: page === 1 ? "#f9fafb" : "#fff",
-              color: page === 1 ? "#9ca3af" : "#374151",
-              cursor: page === 1 ? "not-allowed" : "pointer",
-              fontSize: 13,
-              fontWeight: 500,
+          <div style={{ color: "#aaa" }}>{icons.search}</div>
+
+          <input
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
             }}
-          >
-            ← Prejšnja
-          </button>
+            placeholder="Iskanje..."
+            style={{
+              border: "none",
+              outline: "none",
+              fontSize: 14,
+              color: "#333",
+              background: "transparent",
+              flex: 1,
+            }}
+          />
 
-          <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", justifyContent: "center" }}>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => {
-              const isActive = p === page;
-
-              return (
-                <button
-                  key={p}
-                  onClick={() => setPage(p)}
-                  style={{
-                    minWidth: 34,
-                    height: 34,
-                    padding: "0 10px",
-                    borderRadius: 8,
-                    border: isActive ? "1px solid #00a4a7" : "1px solid #e5e7eb",
-                    background: isActive ? "#00a4a7" : "#fff",
-                    color: isActive ? "#fff" : "#374151",
-                    cursor: "pointer",
-                    fontSize: 13,
-                    fontWeight: isActive ? 700 : 500,
-                  }}
-                >
-                  {p}
-                </button>
-              );
-            })}
-          </div>
+          <span style={{ fontSize: 12, color: "#aaa" }}>
+            {search.trim()
+              ? `${filtered.length} rezultatov`
+              : `Prikaz ${from}–${to} od ${total} zapisov`}
+          </span>
 
           <button
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page === totalPages}
+            onClick={handleRefresh}
             style={{
-              padding: "8px 12px",
-              borderRadius: 8,
-              border: "1px solid #e5e7eb",
-              background: page === totalPages ? "#f9fafb" : "#fff",
-              color: page === totalPages ? "#9ca3af" : "#374151",
-              cursor: page === totalPages ? "not-allowed" : "pointer",
-              fontSize: 13,
-              fontWeight: 500,
+              border: "none",
+              background: "transparent",
+              cursor: "pointer",
+              color: "#aaa",
+              display: "flex",
+              alignItems: "center",
             }}
+            title="Osveži"
           >
-            Naslednja →
+            {icons.refresh}
           </button>
+
+          {onAdd && (
+            <button
+              onClick={onAdd}
+              style={{
+                padding: "7px 14px",
+                borderRadius: 8,
+                border: "none",
+                background: BRAND,
+                color: "#fff",
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 5,
+                whiteSpace: "nowrap",
+              }}
+            >
+              + Dodaj
+            </button>
+          )}
         </div>
-      )}
-    </div>
+
+        {effectiveError && (
+          <div style={{ padding: 20, background: "#fef2f2", color: "#dc2626", fontSize: 13 }}>
+            ⚠️ Napaka: {effectiveError}
+          </div>
+        )}
+
+        {effectiveLoading && (
+          <div style={{ padding: 40, textAlign: "center", color: "#aaa", fontSize: 14 }}>
+            Nalaganje iz WordPressa...
+          </div>
+        )}
+
+        {!effectiveLoading && !effectiveError && filtered.length > 0 && (
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ background: "#fafafa" }}>
+                {["Naslov", "Datum", "Status", ""].map((h) => (
+                  <th
+                    key={h}
+                    style={{
+                      padding: "11px 20px",
+                      textAlign: "left",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: "#888",
+                      borderBottom: "1px solid #f0f0f0",
+                    }}
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+
+            <tbody>
+              {filtered.map((post, i) => {
+                const acfPreview = getAcfPreview(post.acf);
+
+                return (
+                  <tr
+                    key={post.id}
+                    style={{
+                      borderBottom: i < filtered.length - 1 ? "1px solid #f7f7f7" : "none",
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "#fafafa")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                  >
+                    <td style={{ padding: "14px 20px" }}>
+                      <div
+                        style={{ fontWeight: 600, fontSize: 14, color: "#111" }}
+                        dangerouslySetInnerHTML={{ __html: post.title.rendered }}
+                      />
+                      {acfPreview.length > 0 && (
+                        <div style={{ display: "flex", gap: 12, marginTop: 4, flexWrap: "wrap" }}>
+                          {acfPreview.map(([key, val]) => (
+                            <span key={key} style={{ fontSize: 11, color: "#888" }}>
+                              <span style={{ color: "#bbb" }}>{key}: </span>
+                              {String(val)}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </td>
+
+                    <td style={{ padding: "14px 20px", fontSize: 13, color: "#666" }}>
+                      {formatDate(post.date)}
+                    </td>
+
+                    <td style={{ padding: "14px 20px" }}>
+                      <StatusBadge status={post.status} />
+                    </td>
+
+                    <td style={{ padding: "14px 20px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <a
+                          href={`/cpt/${cptSlug}/${post.slug}`}
+                          style={{
+                            fontSize: 13,
+                            color: "#00a4a7",
+                            fontWeight: 500,
+                            textDecoration: "none",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 2,
+                          }}
+                        >
+                          Odpri {icons.arrow}
+                        </a>
+
+                        {DELETABLE.includes(cptSlug) && (
+                          <button
+                            onClick={() =>
+                              setDeleteTarget({
+                                id: post.id,
+                                naziv: post.title.rendered.replace(/<[^>]*>/g, ""),
+                              })
+                            }
+                            title="Premakni v koš"
+                            style={{
+                              border: "none",
+                              background: "transparent",
+                              cursor: "pointer",
+                              color: "#d1d5db",
+                              padding: 4,
+                              display: "flex",
+                              borderRadius: 6,
+                            }}
+                            onMouseEnter={(e) => (e.currentTarget.style.color = "#dc2626")}
+                            onMouseLeave={(e) => (e.currentTarget.style.color = "#d1d5db")}
+                          >
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <polyline points="3 6 5 6 21 6" />
+                              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                              <path d="M10 11v6M14 11v6" />
+                              <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+
+        {!effectiveLoading && !effectiveError && filtered.length === 0 && (
+          <div style={{ padding: 40, textAlign: "center", color: "#aaa", fontSize: 14 }}>
+            {search ? `Ni rezultatov za "${search}"` : "Ni zapisov"}
+          </div>
+        )}
+
+        {!effectiveLoading && !effectiveError && !search.trim() && totalPages > 1 && (
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              padding: "14px 20px",
+              borderTop: "1px solid #f0f0f0",
+              background: "#fff",
+            }}
+          >
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+              style={{
+                padding: "8px 12px",
+                borderRadius: 8,
+                border: "1px solid #e5e7eb",
+                background: page === 1 ? "#f9fafb" : "#fff",
+                color: page === 1 ? "#9ca3af" : "#374151",
+                cursor: page === 1 ? "not-allowed" : "pointer",
+                fontSize: 13,
+                fontWeight: 500,
+              }}
+            >
+              ← Prejšnja
+            </button>
+
+            <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", justifyContent: "center" }}>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => {
+                const isActive = p === page;
+
+                return (
+                  <button
+                    key={p}
+                    onClick={() => setPage(p)}
+                    style={{
+                      minWidth: 34,
+                      height: 34,
+                      padding: "0 10px",
+                      borderRadius: 8,
+                      border: isActive ? "1px solid #00a4a7" : "1px solid #e5e7eb",
+                      background: isActive ? "#00a4a7" : "#fff",
+                      color: isActive ? "#fff" : "#374151",
+                      cursor: "pointer",
+                      fontSize: 13,
+                      fontWeight: isActive ? 700 : 500,
+                    }}
+                  >
+                    {p}
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              style={{
+                padding: "8px 12px",
+                borderRadius: 8,
+                border: "1px solid #e5e7eb",
+                background: page === totalPages ? "#f9fafb" : "#fff",
+                color: page === totalPages ? "#9ca3af" : "#374151",
+                cursor: page === totalPages ? "not-allowed" : "pointer",
+                fontSize: 13,
+                fontWeight: 500,
+              }}
+            >
+              Naslednja →
+            </button>
+          </div>
+        )}
+      </div>
     </>
   );
 }
@@ -876,50 +1021,162 @@ function StrankeTekoMesec({ stranke: initialStranke, loading }: { stranke: Stran
 // GLOBALNO ISKANJE
 // ============================================================
 function GlobalSearchBar() {
-  const narocniki = useWPData("narocnik");
-  const ponudbe = useWPData("ponudba");
-  const stranke = useWPData("stranka");
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
 
+  const enabled = query.trim().length >= 2;
+
+  const narocniki = useAllWPData("narocnik", enabled);
+  const ponudbe = useAllWPData("ponudba", enabled);
+  const stranke = useAllWPData("stranka", enabled);
+
+  const loading = narocniki.loading || ponudbe.loading || stranke.loading;
+
   const results = useMemo(() => {
-    if (!query.trim() || query.length < 2) return [];
+    if (!enabled) return [];
+
     const q = query.toLowerCase();
+
     return [
-      ...narocniki.posts.filter(p => p.title.rendered.toLowerCase().includes(q)).map(p => ({ ...p, cptType: "Naročnik", cptSlug: "narocnik", color: "#00a4a7" })),
-      ...ponudbe.posts.filter(p => p.title.rendered.toLowerCase().includes(q)).map(p => ({ ...p, cptType: "Ponudba", cptSlug: "ponudba", color: "#10b981" })),
-      ...stranke.posts.filter(p => p.title.rendered.toLowerCase().includes(q)).map(p => ({ ...p, cptType: "Stranka", cptSlug: "stranka", color: "#f59e0b" })),
-    ].slice(0, 8);
-  }, [query, narocniki.posts, ponudbe.posts, stranke.posts]);
+      ...narocniki.posts
+        .filter((p) => {
+          const title = p.title.rendered.toLowerCase();
+          const acfText = p.acf ? JSON.stringify(p.acf).toLowerCase() : "";
+          return title.includes(q) || acfText.includes(q);
+        })
+        .map((p) => ({ ...p, cptType: "Naročnik", cptSlug: "narocnik", color: "#00a4a7" })),
+
+      ...ponudbe.posts
+        .filter((p) => {
+          const title = p.title.rendered.toLowerCase();
+          const acfText = p.acf ? JSON.stringify(p.acf).toLowerCase() : "";
+          return title.includes(q) || acfText.includes(q);
+        })
+        .map((p) => ({ ...p, cptType: "Ponudba", cptSlug: "ponudba", color: "#10b981" })),
+
+      ...stranke.posts
+        .filter((p) => {
+          const title = p.title.rendered.toLowerCase();
+          const acfText = p.acf ? JSON.stringify(p.acf).toLowerCase() : "";
+          return title.includes(q) || acfText.includes(q);
+        })
+        .map((p) => ({ ...p, cptType: "Stranka", cptSlug: "stranka", color: "#f59e0b" })),
+    ]
+      .slice(0, 8);
+  }, [enabled, query, narocniki.posts, ponudbe.posts, stranke.posts]);
 
   return (
     <div style={{ position: "relative", width: 500 }}>
-      <div style={{ background: "#f8f9fb", borderRadius: 8, border: "1px solid #e5e7eb", display: "flex", alignItems: "center", gap: 8, padding: "7px 12px" }}>
+      <div
+        style={{
+          background: "#f8f9fb",
+          borderRadius: 8,
+          border: "1px solid #e5e7eb",
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "7px 12px",
+        }}
+      >
         <span style={{ color: "#aaa", flexShrink: 0 }}>{icons.search}</span>
+
         <input
           value={query}
-          onChange={e => { setQuery(e.target.value); setOpen(true); }}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setOpen(true);
+          }}
           onFocus={() => setOpen(true)}
           onBlur={() => setTimeout(() => setOpen(false), 150)}
           placeholder="Iskanje..."
-          style={{ border: "none", outline: "none", fontSize: 13, color: "#333", background: "transparent", flex: 1, width: "100%" }}
+          style={{
+            border: "none",
+            outline: "none",
+            fontSize: 13,
+            color: "#333",
+            background: "transparent",
+            flex: 1,
+            width: "100%",
+          }}
         />
-        {query && <button onClick={() => setQuery("")} style={{ border: "none", background: "none", cursor: "pointer", color: "#aaa", fontSize: 16, lineHeight: 1, flexShrink: 0 }}>×</button>}
+
+        {query && (
+          <button
+            onClick={() => setQuery("")}
+            style={{
+              border: "none",
+              background: "none",
+              cursor: "pointer",
+              color: "#aaa",
+              fontSize: 16,
+              lineHeight: 1,
+              flexShrink: 0,
+            }}
+          >
+            ×
+          </button>
+        )}
       </div>
 
       {open && query.length >= 2 && (
-        <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0, background: "#fff", borderRadius: 10, border: "1px solid #e5e7eb", boxShadow: "0 8px 24px rgba(0,0,0,0.1)", zIndex: 1000, overflow: "hidden" }}>
-          {results.length === 0 ? (
-            <div style={{ padding: "14px 16px", fontSize: 13, color: "#aaa", textAlign: "center" }}>Ni rezultatov</div>
+        <div
+          style={{
+            position: "absolute",
+            top: "calc(100% + 6px)",
+            left: 0,
+            right: 0,
+            background: "#fff",
+            borderRadius: 10,
+            border: "1px solid #e5e7eb",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.1)",
+            zIndex: 1000,
+            overflow: "hidden",
+          }}
+        >
+          {loading ? (
+            <div style={{ padding: "14px 16px", fontSize: 13, color: "#aaa", textAlign: "center" }}>
+              Nalaganje...
+            </div>
+          ) : results.length === 0 ? (
+            <div style={{ padding: "14px 16px", fontSize: 13, color: "#aaa", textAlign: "center" }}>
+              Ni rezultatov
+            </div>
           ) : (
             results.map((item, i) => (
-              <a key={`${item.cptSlug}-${item.id}`} href={`/cpt/${item.cptSlug}/${item.slug}`}
-                style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", textDecoration: "none", borderBottom: i < results.length - 1 ? "1px solid #f7f7f7" : "none", background: "#fff" }}
-                onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
-                onMouseLeave={e => (e.currentTarget.style.background = "#fff")}
+              <a
+                key={`${item.cptSlug}-${item.id}`}
+                href={`/cpt/${item.cptSlug}/${item.slug}`}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "9px 14px",
+                  textDecoration: "none",
+                  borderBottom: i < results.length - 1 ? "1px solid #f7f7f7" : "none",
+                  background: "#fff",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "#f8fafc")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}
               >
-                <span style={{ padding: "2px 7px", borderRadius: 10, fontSize: 11, fontWeight: 600, background: item.color + "18", color: item.color, flexShrink: 0 }}>{item.cptType}</span>
-                <span style={{ fontSize: 13, color: "#111", fontWeight: 500 }} dangerouslySetInnerHTML={{ __html: item.title.rendered }} />
+                <span
+                  style={{
+                    padding: "2px 7px",
+                    borderRadius: 10,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    background: item.color + "18",
+                    color: item.color,
+                    flexShrink: 0,
+                  }}
+                >
+                  {item.cptType}
+                </span>
+
+                <span
+                  style={{ fontSize: 13, color: "#111", fontWeight: 500 }}
+                  dangerouslySetInnerHTML={{ __html: item.title.rendered }}
+                />
+
                 <span style={{ fontSize: 12, color: "#aaa", marginLeft: "auto", flexShrink: 0 }}>→</span>
               </a>
             ))
