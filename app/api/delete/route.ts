@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { logActivity } from "@/lib/activityLog";
 
 const WP_URL = (process.env.NEXT_PUBLIC_WORDPRESS_URL || "").replace(/\/$/, "");
 const WP_USER = process.env.WP_APP_USER || "";
@@ -8,13 +9,20 @@ const credentials = () => Buffer.from(`${WP_USER}:${WP_PASS}`).toString("base64"
 
 const ALLOWED_CPT = ["narocnik", "stranka", "ponudba"];
 
+const TYPE_MAP: Record<string, string> = {
+  narocnik: "Naročnik",
+  stranka: "Stranka",
+  ponudba: "Ponudba",
+};
+
 export async function POST(req: NextRequest) {
   const cookieStore = await cookies();
-  if (!cookieStore.get("dashboard_auth")?.value) {
+  const user = cookieStore.get("dashboard_auth")?.value || "neznan";
+  if (!user) {
     return NextResponse.json({ error: "Ni avtorizacije" }, { status: 401 });
   }
 
-  const { id, cptSlug } = await req.json();
+  const { id, cptSlug, title } = await req.json();
 
   if (!id || !cptSlug) {
     return NextResponse.json({ error: "Manjka id ali cptSlug" }, { status: 400 });
@@ -24,7 +32,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Brisanje ni dovoljeno za ta tip" }, { status: 403 });
   }
 
-  // DELETE without ?force=true → moves to trash
   const res = await fetch(`${WP_URL}/wp-json/wp/v2/${cptSlug}/${id}`, {
     method: "DELETE",
     headers: { Authorization: `Basic ${credentials()}` },
@@ -34,6 +41,13 @@ export async function POST(req: NextRequest) {
     const err = await res.text();
     return NextResponse.json({ error: `WP napaka: ${err}` }, { status: 500 });
   }
+
+  logActivity({
+    title: title || `#${id}`,
+    type: TYPE_MAP[cptSlug] || cptSlug,
+    action: "IZBRISANO",
+    user,
+  });
 
   return NextResponse.json({ ok: true });
 }
