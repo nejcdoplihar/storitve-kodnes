@@ -1,3 +1,4 @@
+import { logActivity } from "@/lib/activityLog";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
@@ -9,7 +10,8 @@ const credentials = () => Buffer.from(`${WP_USER}:${WP_PASS}`).toString("base64"
 export async function POST(req: NextRequest) {
   const cookieStore = await cookies();
 
-  if (!cookieStore.get("dashboard_auth")?.value) {
+  const user = cookieStore.get("dashboard_auth")?.value || "neznan";
+if (!user) {
     return NextResponse.json({ error: "Ni avtorizacije" }, { status: 401 });
   }
 
@@ -53,5 +55,6 @@ export async function POST(req: NextRequest) {
   }
 
   const data = await res.json();
+  logActivity({ title: String(title).trim(), type: "Naročnik", action: "DODANO", user }); // ← TUKAJ
   return NextResponse.json({ ok: true, id: data.id, slug: data.slug });
 }
