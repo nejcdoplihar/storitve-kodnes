@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
+import { logActivity } from "@/lib/activityLog";
 
 const WP_URL = (process.env.NEXT_PUBLIC_WORDPRESS_URL || "").replace(/\/$/, "");
 const WP_USER = process.env.WP_APP_USER || "";
@@ -12,7 +13,8 @@ const credentials = () =>
 export async function POST(req: NextRequest) {
   const cookieStore = await cookies();
 
-  if (!cookieStore.get("dashboard_auth")?.value) {
+  const user = cookieStore.get("dashboard_auth")?.value || "neznan";
+  if (!user) {
     return NextResponse.json({ error: "Ni avtorizacije" }, { status: 401 });
   }
 
@@ -26,6 +28,7 @@ export async function POST(req: NextRequest) {
       domena_url,
       potek_storitev,
       stanje_storitve,
+      stanje_vzdrzevanja,
       strosek,
       strosek_obracun,
       opombe,
@@ -46,6 +49,7 @@ export async function POST(req: NextRequest) {
         domena_url: domena_url || "",
         potek_storitev: potek_storitev || "",
         stanje_storitve: Boolean(stanje_storitve),
+        stanje_vzdrzevanja: Boolean(stanje_vzdrzevanja),
         strosek:
           strosek !== "" && strosek !== null && strosek !== undefined
             ? Number(strosek)
@@ -91,6 +95,8 @@ export async function POST(req: NextRequest) {
     if (wpData?.slug) {
       revalidatePath(`/cpt/stranka/${wpData.slug}`);
     }
+
+    logActivity({ title: title ? String(title).trim() : `Stranka #${id}`, type: "Stranka", action: "UREJENO", user });
 
     return NextResponse.json({
       ok: true,

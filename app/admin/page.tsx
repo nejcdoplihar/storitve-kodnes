@@ -1,27 +1,5 @@
 "use client";
-// app/admin/page.tsx
-// ============================================================
-// REFAKTORIRANI ADMIN VMESNIK
-// Originalna datoteka: 3200+ vrstic → ta datoteka: ~120 vrstic
-//
-// Struktura modulov:
-//   lib/constants.ts          — BRAND, WP_URL, STORITVE_LABELS...
-//   lib/helpers.ts            — formatDate, parseACFDate, getDaysLeft...
-//   types/admin.ts            — Post, Stranka, Opravilo, ActiveView
-//   hooks/useWPData.ts        — useWPData, useAllWPData, useStranke
-//   hooks/useOpravila.ts      — useOpravila
-//   hooks/useAuth.ts          — useCurrentUser, useSessionTimeout
-//   components/admin/Icons.tsx           — SVG ikone
-//   components/admin/UI.tsx              — ModalWrapper, StatCard, ConfirmDeleteDialog...
-//   components/admin/DataTable.tsx       — Generična tabela s paginacijo
-//   components/admin/GlobalSearchBar.tsx — Globalno iskanje
-//   components/admin/UserMenu.tsx        — UserMenu, SessionWarning, SidebarProfileButton
-//   components/admin/views/DashboardOverview.tsx
-//   components/admin/views/OpravilaView.tsx
-//   components/admin/views/FinanceStatistikaView.tsx
-//   components/admin/views/ProfilView.tsx
-//   components/admin/modals/StrankaModals.tsx
-// ============================================================
+// app/admin/page.tsx — mobilno prilagojen layout s hamburger menijem
 
 import { useState, useEffect } from "react";
 import { BRAND } from "@/lib/constants";
@@ -64,9 +42,9 @@ const titles: Record<ActiveView, string> = {
 
 const subtitles: Record<ActiveView, string> = {
   dashboard: "Pregled vseh vsebin iz Kodnes CMS",
-  narocnik: "Vsi zapisi tipa \"Naročnik\" iz WordPressa",
-  ponudba: "Vsi zapisi tipa \"Ponudba\" iz WordPressa",
-  stranka: "Vsi zapisi tipa \"Stranka\" iz WordPressa",
+  narocnik: 'Vsi zapisi tipa "Naročnik" iz WordPressa',
+  ponudba: 'Vsi zapisi tipa "Ponudba" iz WordPressa',
+  stranka: 'Vsi zapisi tipa "Stranka" iz WordPressa',
   opravila: "Vsa opravila in popravki za stranke",
   statistika: "Statistika strank po mesecih in storitvah",
   finance: "Pregled prihodkov in finančnih podatkov",
@@ -74,248 +52,270 @@ const subtitles: Record<ActiveView, string> = {
 };
 
 // ============================================================
+// HAMBURGER IKONA
+// ============================================================
+function HamburgerIcon({ open }: { open: boolean }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+      {open ? (
+        <>
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </>
+      ) : (
+        <>
+          <line x1="3" y1="6" x2="21" y2="6" />
+          <line x1="3" y1="12" x2="21" y2="12" />
+          <line x1="3" y1="18" x2="21" y2="18" />
+        </>
+      )}
+    </svg>
+  );
+}
+
+// ============================================================
+// SIDEBAR VSEBINA (skupna za desktop in mobilni)
+// ============================================================
+function SidebarContent({
+  activeView,
+  sidebarOpen,
+  onNavigate,
+  onToggle,
+}: {
+  activeView: ActiveView;
+  sidebarOpen: boolean;
+  onNavigate: (view: ActiveView) => void;
+  onToggle: () => void;
+}) {
+  return (
+    <>
+      {/* Logo */}
+      <div style={{ padding: "20px 18px", borderBottom: "1px solid #1e293b", display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ width: 32, height: 32, borderRadius: 8, background: BRAND, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", flexShrink: 0 }}>
+          {icons.wp}
+        </div>
+        {sidebarOpen && (
+          <div>
+            <div style={{ color: "#fff", fontWeight: 700, fontSize: 15, lineHeight: 1 }}>Kodnes admin</div>
+            <div style={{ color: "#475569", fontSize: 11, marginTop: 2 }}>storitve.kodnes.com</div>
+          </div>
+        )}
+      </div>
+
+      {/* Nav items */}
+      <nav style={{ flex: 1, padding: "12px 10px", overflowY: "auto" }}>
+        {navItems.map((item) => {
+          const active = activeView === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => onNavigate(item.id)}
+              title={!sidebarOpen ? item.label : undefined}
+              style={{
+                width: "100%",
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "11px 10px",
+                borderRadius: 8,
+                border: "none",
+                cursor: "pointer",
+                background: active ? BRAND : "transparent",
+                color: active ? "#fff" : "#94a3b8",
+                fontSize: 14,
+                fontWeight: active ? 600 : 400,
+                marginBottom: 2,
+                transition: "all 0.15s",
+                textAlign: "left",
+              }}
+              onMouseEnter={(e) => { if (!active) { e.currentTarget.style.background = "#1e293b"; e.currentTarget.style.color = "#fff"; } }}
+              onMouseLeave={(e) => { if (!active) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#94a3b8"; } }}
+            >
+              <span style={{ flexShrink: 0 }}>{item.icon}</span>
+              {sidebarOpen && <span>{item.label}</span>}
+            </button>
+          );
+        })}
+      </nav>
+
+      {/* Bottom: profil + toggle */}
+      <div style={{ padding: "10px", borderTop: "1px solid #1e293b", display: "flex", flexDirection: "column", gap: 8 }}>
+        <SidebarProfileButton
+          sidebarOpen={sidebarOpen}
+          active={activeView === "profil"}
+          onClick={() => onNavigate("profil")}
+        />
+        <button
+          onClick={onToggle}
+          title={!sidebarOpen ? "Razširi" : undefined}
+          style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "10px", borderRadius: 8, border: "none", cursor: "pointer", background: "transparent", color: "#475569" }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = "#1e293b"; e.currentTarget.style.color = "#94a3b8"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#475569"; }}
+        >
+          {icons.menu}
+          {sidebarOpen && <span style={{ fontSize: 13 }}>Skrči</span>}
+        </button>
+      </div>
+    </>
+  );
+}
+
+// ============================================================
 // MAIN DASHBOARD
 // ============================================================
 export default function Dashboard() {
   const [activeView, setActiveView] = useState<ActiveView>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const { countdown, resetTimer, logout } = useSessionTimeout();
 
-  // Modal state
   const [showNovaStranka, setShowNovaStranka] = useState(false);
   const [showNovNarocnik, setShowNovNarocnik] = useState(false);
   const [showNovaPonudba, setShowNovaPonudba] = useState(false);
   const [dataTableKey, setDataTableKey] = useState(0);
   const { stranke: strankeList } = useStranke();
 
+  // Zaznaj mobilno napravo
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  // Zapri mobilni meni ob spremembi view-a
+  const handleNavigate = (view: ActiveView) => {
+    setActiveView(view);
+    setMobileMenuOpen(false);
+  };
+
   // Sync view from URL query param
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const view = params.get("view") as ActiveView | null;
-    if (view && titles[view]) {
-      setActiveView(view);
-    }
+    if (view && titles[view]) setActiveView(view);
   }, []);
 
   const handleSaved = () => setDataTableKey((k) => k + 1);
 
   return (
-    <div
-      style={{
-        display: "flex",
-        height: "100vh",
-        background: "#f8f9fb",
-        fontFamily: "'DM Sans', system-ui, sans-serif",
-      }}
-    >
-      {/* Session warning overlay */}
+    <div style={{ display: "flex", height: "100vh", background: "#f8f9fb", fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+      {/* Session warning */}
       {countdown !== null && (
         <SessionWarning countdown={countdown} onStay={resetTimer} onLogout={logout} />
       )}
 
       {/* ======================================================
-          SIDEBAR
+          MOBILNI OVERLAY (za zapiranje menija ob kliku zunaj)
       ====================================================== */}
-      <aside
-        style={{
-          width: sidebarOpen ? 200 : 68,
-          minWidth: sidebarOpen ? 200 : 68,
+      {isMobile && mobileMenuOpen && (
+        <div
+          onClick={() => setMobileMenuOpen(false)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 998 }}
+        />
+      )}
+
+      {/* ======================================================
+          SIDEBAR — desktop
+      ====================================================== */}
+      {!isMobile && (
+        <aside style={{ width: sidebarOpen ? 200 : 68, minWidth: sidebarOpen ? 200 : 68, background: "#0f172a", display: "flex", flexDirection: "column", transition: "width 0.2s ease, min-width 0.2s ease", overflow: "hidden", flexShrink: 0 }}>
+          <SidebarContent
+            activeView={activeView}
+            sidebarOpen={sidebarOpen}
+            onNavigate={handleNavigate}
+            onToggle={() => setSidebarOpen(!sidebarOpen)}
+          />
+        </aside>
+      )}
+
+      {/* ======================================================
+          SIDEBAR — mobilni (slide-in drawer)
+      ====================================================== */}
+      {isMobile && (
+        <aside style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          width: 240,
+          height: "100vh",
           background: "#0f172a",
           display: "flex",
           flexDirection: "column",
-          transition: "width 0.2s ease, min-width 0.2s ease",
-          overflow: "hidden",
-        }}
-      >
-        {/* Logo */}
-        <div
-          style={{
-            padding: "20px 18px",
-            borderBottom: "1px solid #1e293b",
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-          }}
-        >
-          <div
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: 8,
-              background: BRAND,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "#fff",
-              flexShrink: 0,
-            }}
-          >
-            {icons.wp}
-          </div>
-          {sidebarOpen && (
-            <div>
-              <div style={{ color: "#fff", fontWeight: 700, fontSize: 15, lineHeight: 1 }}>
-                Kodnes admin
-              </div>
-              <div style={{ color: "#475569", fontSize: 11, marginTop: 2 }}>
-                storitve.kodnes.com
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Nav items */}
-        <nav style={{ flex: 1, padding: "12px 10px" }}>
-          {navItems.map((item) => {
-            const active = activeView === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => setActiveView(item.id)}
-                title={!sidebarOpen ? item.label : undefined}
-                style={{
-                  width: "100%",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "10px",
-                  borderRadius: 8,
-                  border: "none",
-                  cursor: "pointer",
-                  background: active ? BRAND : "transparent",
-                  color: active ? "#fff" : "#94a3b8",
-                  fontSize: 14,
-                  fontWeight: active ? 600 : 400,
-                  marginBottom: 2,
-                  transition: "all 0.15s",
-                  textAlign: "left",
-                }}
-                onMouseEnter={(e) => {
-                  if (!active) {
-                    e.currentTarget.style.background = "#1e293b";
-                    e.currentTarget.style.color = "#fff";
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!active) {
-                    e.currentTarget.style.background = "transparent";
-                    e.currentTarget.style.color = "#94a3b8";
-                  }
-                }}
-              >
-                <span style={{ flexShrink: 0 }}>{item.icon}</span>
-                {sidebarOpen && <span>{item.label}</span>}
-              </button>
-            );
-          })}
-        </nav>
-
-        {/* Bottom: profil + toggle */}
-        <div
-          style={{
-            padding: "10px",
-            borderTop: "1px solid #1e293b",
-            display: "flex",
-            flexDirection: "column",
-            gap: 8,
-          }}
-        >
-          <SidebarProfileButton
-            sidebarOpen={sidebarOpen}
-            active={activeView === "profil"}
-            onClick={() => setActiveView("profil")}
+          zIndex: 999,
+          transform: mobileMenuOpen ? "translateX(0)" : "translateX(-100%)",
+          transition: "transform 0.25s ease",
+          boxShadow: mobileMenuOpen ? "4px 0 24px rgba(0,0,0,0.3)" : "none",
+        }}>
+          <SidebarContent
+            activeView={activeView}
+            sidebarOpen={true}
+            onNavigate={handleNavigate}
+            onToggle={() => setMobileMenuOpen(false)}
           />
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            title={!sidebarOpen ? "Razširi" : undefined}
-            style={{
-              width: "100%",
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              padding: "10px",
-              borderRadius: 8,
-              border: "none",
-              cursor: "pointer",
-              background: "transparent",
-              color: "#475569",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "#1e293b";
-              e.currentTarget.style.color = "#94a3b8";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "transparent";
-              e.currentTarget.style.color = "#475569";
-            }}
-          >
-            {icons.menu}
-            {sidebarOpen && <span style={{ fontSize: 13 }}>Skrči</span>}
-          </button>
-        </div>
-      </aside>
+        </aside>
+      )}
 
       {/* ======================================================
           MAIN CONTENT
       ====================================================== */}
-      <main style={{ flex: 1, overflow: "auto", display: "flex", flexDirection: "column" }}>
+      <main style={{ flex: 1, overflow: "auto", display: "flex", flexDirection: "column", minWidth: 0 }}>
         {/* Header */}
-        <header
-          style={{
-            background: "#fff",
-            borderBottom: "1px solid #f0f0f0",
-            padding: "0 28px",
-            height: 60,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            flexShrink: 0,
-          }}
-        >
-          <div>
-            <span style={{ fontSize: 13, color: "#aaa" }}>Kodnes CMS / </span>
-            <span style={{ fontSize: 13, fontWeight: 600, color: "#111" }}>
+        <header style={{
+          background: "#fff",
+          borderBottom: "1px solid #f0f0f0",
+          padding: isMobile ? "0 16px" : "0 28px",
+          height: 60,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexShrink: 0,
+          gap: 12,
+        }}>
+          {/* Levo: hamburger (mobilni) ali breadcrumb (desktop) */}
+          {isMobile ? (
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              style={{ border: "none", background: "transparent", cursor: "pointer", color: "#374151", display: "flex", alignItems: "center", padding: 4, flexShrink: 0 }}
+            >
+              <HamburgerIcon open={mobileMenuOpen} />
+            </button>
+          ) : (
+            <div style={{ flexShrink: 0 }}>
+              <span style={{ fontSize: 13, color: "#aaa" }}>Kodnes CMS / </span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: "#111" }}>{titles[activeView]}</span>
+            </div>
+          )}
+
+          {/* Sredina: naslov strani (samo mobilni) */}
+          {isMobile && (
+            <span style={{ fontSize: 15, fontWeight: 700, color: "#111", flex: 1, textAlign: "center" }}>
               {titles[activeView]}
             </span>
-          </div>
-          <GlobalSearchBar />
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          )}
+
+          {/* Desno: iskanje + user */}
+          <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12, flexShrink: 0 }}>
+            {!isMobile && <GlobalSearchBar />}
             <UserMenu />
           </div>
         </header>
 
         {/* Page content */}
-        <div style={{ padding: 28, flex: 1, overflowY: "auto" }}>
-          {/* Page title */}
-          <div style={{ marginBottom: 22 }}>
-            <h1 style={{ fontSize: 22, fontWeight: 700, color: "#111", margin: 0 }}>
-              {titles[activeView]}
-            </h1>
-            <p style={{ fontSize: 13, color: "#888", marginTop: 4 }}>
-              {subtitles[activeView]}
-            </p>
-          </div>
+        <div style={{ padding: isMobile ? "16px 12px" : 28, flex: 1, overflowY: "auto" }}>
+          {/* Page title — samo desktop */}
+          {!isMobile && (
+            <div style={{ marginBottom: 22 }}>
+              <h1 style={{ fontSize: 22, fontWeight: 700, color: "#111", margin: 0 }}>{titles[activeView]}</h1>
+              <p style={{ fontSize: 13, color: "#888", marginTop: 4 }}>{subtitles[activeView]}</p>
+            </div>
+          )}
 
           {/* Modals */}
-          {showNovaStranka && (
-            <NovaStrankaModal
-              onClose={() => setShowNovaStranka(false)}
-              onSaved={handleSaved}
-            />
-          )}
-          {showNovNarocnik && (
-            <NovNarocnikModal
-              onClose={() => setShowNovNarocnik(false)}
-              onSaved={handleSaved}
-            />
-          )}
-          {showNovaPonudba && (
-            <NovaPonudbaModal
-              onClose={() => setShowNovaPonudba(false)}
-              onSaved={handleSaved}
-              stranke={strankeList}
-            />
-          )}
+          {showNovaStranka && <NovaStrankaModal onClose={() => setShowNovaStranka(false)} onSaved={handleSaved} />}
+          {showNovNarocnik && <NovNarocnikModal onClose={() => setShowNovNarocnik(false)} onSaved={handleSaved} />}
+          {showNovaPonudba && <NovaPonudbaModal onClose={() => setShowNovaPonudba(false)} onSaved={handleSaved} stranke={strankeList} />}
 
           {/* Active view */}
           {activeView === "dashboard" ? (
