@@ -479,7 +479,7 @@ export function DataTable({ cptSlug, onAdd }: { cptSlug: string; onAdd?: () => v
                         {EDITABLE.includes(cptSlug) ? (
                           <button
                             onClick={() => setEditTarget(post as AnyPost)}
-                            style={{ fontSize: 13, color: BRAND, fontWeight: 600, background: "transparent", border: "none", cursor: "pointer", padding: "6px 12px", borderRadius: 8, background: BRAND + "15" } as React.CSSProperties}
+                            style={{ fontSize: 13, color: BRAND, fontWeight: 600, border: "none", cursor: "pointer", padding: "6px 12px", borderRadius: 8, background: BRAND + "15" } as React.CSSProperties}
                           >
                             Uredi
                           </button>
