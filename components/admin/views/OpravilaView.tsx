@@ -425,7 +425,7 @@ function UrediOpraviloModal({
   // Pridobi stranka_id iz relacije
   const strankaRel = opravilo.acf?.stranka_rel;
   const initStrankaId = Array.isArray(strankaRel) && strankaRel[0]
-    ? String(typeof strankaRel[0] === "object" ? strankaRel[0].ID || strankaRel[0].id : strankaRel[0])
+    ? String(typeof strankaRel[0] === "object" ? (strankaRel[0] as { ID?: number; post_title?: string }).ID ?? 0 : strankaRel[0])
     : "";
 
   // Datum je v formatu d/m/Y — pretvorimo v Ymd za input
