@@ -461,16 +461,7 @@ export function DataTable({ cptSlug, onAdd }: { cptSlug: string; onAdd?: () => v
                       <StatusBadge status={post.status} />
                     </div>
 
-                    {/* ACF preview */}
-                    {acfPreview.length > 0 && (
-                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
-                        {acfPreview.slice(0, 3).map(([key, val]) => (
-                          <span key={key} style={{ fontSize: 11, color: "#888" }}>
-                            <span style={{ color: "#bbb" }}>{key}: </span>{String(val)}
-                          </span>
-                        ))}
-                      </div>
-                    )}
+                    {/* ACF preview — skrit na mobilnem */}
 
                     {/* Datum + akcije */}
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
