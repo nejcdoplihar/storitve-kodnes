@@ -1,16 +1,5 @@
 "use client";
 
-import { useState as useStateIM, useEffect as useEffectIM } from "react";
-function useIsMobile() {
-  const [m, setM] = useStateIM(false);
-  useEffectIM(() => {
-    const c = () => setM(window.innerWidth < 768);
-    c(); window.addEventListener("resize", c);
-    return () => window.removeEventListener("resize", c);
-  }, []);
-  return m;
-}
-
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -368,29 +357,23 @@ function ModalWrapper({
         zIndex: 9990,
         background: "rgba(0,0,0,0.5)",
         display: "flex",
-        alignItems: isMobile ? "flex-end" : "center",
+        alignItems: "center",
         justifyContent: "center",
-        padding: isMobile ? 0 : 16,
+        padding: 16,
       }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div
         style={{
           background: "#fff",
-          borderRadius: isMobile ? "20px 20px 0 0" : 16,
+          borderRadius: 16,
           width: "100%",
-          maxWidth: isMobile ? "100%" : 620,
-          maxHeight: isMobile ? "92vh" : "90vh",
+          maxWidth: 620,
+          maxHeight: "90vh",
           display: "flex",
           flexDirection: "column",
-          boxShadow: isMobile ? "0 -4px 40px rgba(0,0,0,0.15)" : "0 20px 60px rgba(0,0,0,0.2)",
+          boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
         }}
       >
-        {isMobile && (
-          <div style={{ padding: "12px 0 4px", display: "flex", justifyContent: "center", flexShrink: 0 }}>
-            <div style={{ width: 36, height: 4, borderRadius: 2, background: "#e5e7eb" }} />
-          </div>
-        )}
         <div
           style={{
             padding: "18px 24px",
@@ -472,7 +455,6 @@ function UrediStrankoModal({
   const router = useRouter();
 
   const [loadingInitial, setLoadingInitial] = useState(true);
-  const isMobile = useIsMobile();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -972,7 +954,6 @@ function DodajOpraviloModal({
   username: string;
 }) {
   const [form, setForm] = useState({
-  const isMobile = useIsMobile();
     datum_opravila: todayYMD(),
     naslov_opravila: "",
     opis_opravila: "",
