@@ -1627,6 +1627,7 @@ function OpravilaTabela({
                 <th style={thStyle}>Znesek</th>
                 <th style={thStyle}>Status</th>
                 <th style={{ ...thStyle, width: 48 }}></th>
+              </tr>
             </thead>
 
             <tbody>
