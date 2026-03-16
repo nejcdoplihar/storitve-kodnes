@@ -2,9 +2,20 @@
 // components/admin/UI.tsx
 // Skupne UI komponente: gumbi, modali, form polja, badge-i
 
-import { type ReactNode } from "react";
+import { type ReactNode, useState, useEffect } from "react";
 import { BRAND } from "@/lib/constants";
 import { icons } from "./Icons";
+
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+  return isMobile;
+}
 
 // ============================================================
 // GUMBI
@@ -78,36 +89,44 @@ export function ModalWrapper({
   children: ReactNode;
   footer?: ReactNode;
 }) {
+  const isMobile = useIsMobile();
   return (
     <div
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
       style={{
         position: "fixed",
         inset: 0,
         zIndex: 9000,
         background: "rgba(0,0,0,0.45)",
         display: "flex",
-        alignItems: "center",
+        alignItems: isMobile ? "flex-end" : "center",
         justifyContent: "center",
-        padding: 16,
+        padding: isMobile ? 0 : 16,
       }}
     >
       <div
         style={{
           background: "#fff",
-          borderRadius: 16,
+          borderRadius: isMobile ? "20px 20px 0 0" : 16,
           width: "100%",
-          maxWidth: 540,
-          maxHeight: "90vh",
+          maxWidth: isMobile ? "100%" : 540,
+          maxHeight: isMobile ? "92vh" : "90vh",
           display: "flex",
           flexDirection: "column",
-          boxShadow: "0 20px 60px rgba(0,0,0,0.18)",
+          boxShadow: "0 -4px 40px rgba(0,0,0,0.15)",
           overflow: "hidden",
         }}
       >
+        {/* Mobilni drag handle */}
+        {isMobile && (
+          <div style={{ padding: "12px 0 4px", display: "flex", justifyContent: "center", flexShrink: 0 }}>
+            <div style={{ width: 36, height: 4, borderRadius: 2, background: "#e5e7eb" }} />
+          </div>
+        )}
         {/* Header */}
         <div
           style={{
-            padding: "20px 24px",
+            padding: isMobile ? "12px 20px 14px" : "20px 24px",
             borderBottom: "1px solid #f0f0f0",
             display: "flex",
             alignItems: "center",
@@ -115,7 +134,7 @@ export function ModalWrapper({
             flexShrink: 0,
           }}
         >
-          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "#111" }}>{title}</h2>
+          <h2 style={{ margin: 0, fontSize: isMobile ? 16 : 17, fontWeight: 700, color: "#111" }}>{title}</h2>
           <button
             onClick={onClose}
             style={{
@@ -135,7 +154,7 @@ export function ModalWrapper({
         {/* Body */}
         <div
           style={{
-            padding: "20px 24px",
+            padding: isMobile ? "16px 20px" : "20px 24px",
             overflowY: "auto",
             flex: 1,
             display: "flex",
