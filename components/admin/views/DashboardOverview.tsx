@@ -384,10 +384,10 @@ export function DashboardOverview() {
   return (
     <div>
       {/* Stat cards */}
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(3, 1fr)", gap: isMobile ? 10 : 16, marginBottom: isMobile ? 16 : 28 }}>
-        <StatCard label="Naročniki" value={narocniki.total} loading={narocniki.loading} color="#00a4a7" icon={icons.users} />
-        <StatCard label="Ponudbe" value={ponudbe.total} loading={ponudbe.loading} color="#10b981" icon={icons.file} />
-        <StatCard label="Stranke" value={stranke.total} loading={stranke.loading} color="#f59e0b" icon={icons.building} />
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)", gap: isMobile ? 8 : 16, marginBottom: isMobile ? 16 : 28 }}>
+        <StatCard label="Naročniki" value={narocniki.total} loading={narocniki.loading} color="#00a4a7" icon={icons.users} compact={isMobile} />
+        <StatCard label="Ponudbe" value={ponudbe.total} loading={ponudbe.loading} color="#10b981" icon={icons.file} compact={isMobile} />
+        <StatCard label="Stranke" value={stranke.total} loading={stranke.loading} color="#f59e0b" icon={icons.building} compact={isMobile} />
       </div>
 
       {/* Stranke ta mesec */}

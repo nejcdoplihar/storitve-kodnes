@@ -265,72 +265,59 @@ export function StatusBadge({ status }: { status: string }) {
 // STAT CARD
 // ============================================================
 export function StatCard({
-  label,
-  value,
-  loading,
-  color,
-  icon,
+  label, value, loading, color, icon, compact = false,
 }: {
   label: string;
   value: number;
   loading: boolean;
   color: string;
   icon: ReactNode;
+  compact?: boolean;
 }) {
+  if (compact) {
+    return (
+      <div style={{
+        background: "#fff", borderRadius: 12, padding: "12px 14px",
+        border: "1px solid #f0f0f0", boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
+        display: "flex", alignItems: "center", gap: 10,
+      }}>
+        <div style={{
+          width: 34, height: 34, borderRadius: 9, background: color,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          color: "#fff", flexShrink: 0,
+        }}>
+          {icon}
+        </div>
+        <div>
+          <div style={{ fontSize: 11, color: "#888", fontWeight: 500, marginBottom: 1 }}>{label}</div>
+          <div style={{ fontSize: 20, fontWeight: 700, color: "#111", lineHeight: 1 }}>
+            {loading ? <span style={{ display: "inline-block", width: 28, height: 20, background: "#f0f0f0", borderRadius: 4 }} /> : value}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div
-      style={{
-        background: "#fff",
-        borderRadius: 14,
-        padding: "22px 24px",
-        border: "1px solid #f0f0f0",
-        boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
-      }}
-    >
+    <div style={{
+      background: "#fff", borderRadius: 14, padding: "22px 24px",
+      border: "1px solid #f0f0f0", boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+    }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
           <div style={{ fontSize: 13, color: "#888", fontWeight: 500, marginBottom: 8 }}>{label}</div>
           <div style={{ fontSize: 32, fontWeight: 700, color: "#111", lineHeight: 1 }}>
-            {loading ? (
-              <span
-                style={{
-                  display: "inline-block",
-                  width: 40,
-                  height: 32,
-                  background: "#f0f0f0",
-                  borderRadius: 6,
-                }}
-              />
-            ) : (
-              value
-            )}
+            {loading ? <span style={{ display: "inline-block", width: 40, height: 32, background: "#f0f0f0", borderRadius: 6 }} /> : value}
           </div>
-          <div
-            style={{
-              fontSize: 12,
-              color: "#22c55e",
-              marginTop: 8,
-              display: "flex",
-              alignItems: "center",
-              gap: 4,
-            }}
-          >
+          <div style={{ fontSize: 12, color: "#22c55e", marginTop: 8, display: "flex", alignItems: "center", gap: 4 }}>
             {icons.trend_up} iz WordPressa
           </div>
         </div>
-        <div
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: 10,
-            background: color,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: "#fff",
-            flexShrink: 0,
-          }}
-        >
+        <div style={{
+          width: 44, height: 44, borderRadius: 10, background: color,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          color: "#fff", flexShrink: 0,
+        }}>
           {icon}
         </div>
       </div>
