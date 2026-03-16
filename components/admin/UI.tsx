@@ -89,7 +89,6 @@ export function ModalWrapper({
   children: ReactNode;
   footer?: ReactNode;
 }) {
-  const isMobile = useIsMobile();
   return (
     <div
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
@@ -99,34 +98,28 @@ export function ModalWrapper({
         zIndex: 9000,
         background: "rgba(0,0,0,0.45)",
         display: "flex",
-        alignItems: isMobile ? "flex-end" : "center",
+        alignItems: "center",
         justifyContent: "center",
-        padding: isMobile ? 0 : 16,
+        padding: 16,
       }}
     >
       <div
         style={{
           background: "#fff",
-          borderRadius: isMobile ? "20px 20px 0 0" : 16,
+          borderRadius: 16,
           width: "100%",
-          maxWidth: isMobile ? "100%" : 540,
-          maxHeight: isMobile ? "92vh" : "90vh",
+          maxWidth: 540,
+          maxHeight: "90vh",
           display: "flex",
           flexDirection: "column",
-          boxShadow: "0 -4px 40px rgba(0,0,0,0.15)",
+          boxShadow: "0 8px 40px rgba(0,0,0,0.18)",
           overflow: "hidden",
         }}
       >
-        {/* Mobilni drag handle */}
-        {isMobile && (
-          <div style={{ padding: "12px 0 4px", display: "flex", justifyContent: "center", flexShrink: 0 }}>
-            <div style={{ width: 36, height: 4, borderRadius: 2, background: "#e5e7eb" }} />
-          </div>
-        )}
         {/* Header */}
         <div
           style={{
-            padding: isMobile ? "12px 20px 14px" : "20px 24px",
+            padding: "16px 20px",
             borderBottom: "1px solid #f0f0f0",
             display: "flex",
             alignItems: "center",
@@ -134,7 +127,7 @@ export function ModalWrapper({
             flexShrink: 0,
           }}
         >
-          <h2 style={{ margin: 0, fontSize: isMobile ? 16 : 17, fontWeight: 700, color: "#111" }}>{title}</h2>
+          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "#111" }}>{title}</h2>
           <button
             onClick={onClose}
             style={{
@@ -154,7 +147,7 @@ export function ModalWrapper({
         {/* Body */}
         <div
           style={{
-            padding: isMobile ? "16px 20px" : "20px 24px",
+            padding: "16px 20px",
             overflowY: "auto",
             flex: 1,
             display: "flex",
