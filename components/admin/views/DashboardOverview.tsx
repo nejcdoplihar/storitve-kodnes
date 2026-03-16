@@ -158,72 +158,43 @@ function StrankeTekoMesec({ stranke: initialStranke, loading }: { stranke: Stran
           Ni strank s potekom ta mesec 🎉
         </div>
       ) : isMobile ? (
-        /* ── MOBILNI PRIKAZ: kartice ── */
+        /* ── MOBILNI PRIKAZ: kompaktne kartice ── */
         <div style={{ padding: "8px 12px" }}>
           {thisMonth.map((stranka, i) => {
             const logo = stranka._embedded?.["wp:featuredmedia"]?.[0]?.source_url || null;
             const currentDate = overrides[stranka.id] || stranka.acf?.potek_storitev;
             const daysLeft = getDaysLeft(currentDate);
-            const cost = Number(stranka.acf?.strosek) || 0;
-            const billing = stranka.acf?.strosek_obracun;
-            const billingLabel = Array.isArray(billing) ? billing[0] : billing || "";
 
             return (
               <div
                 key={stranka.id}
                 style={{
                   borderBottom: i < thisMonth.length - 1 ? "1px solid #f0f0f0" : "none",
-                  padding: "14px 4px",
+                  padding: "12px 4px",
                 }}
               >
                 {/* Vrstica 1: logo + ime + status badge */}
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 8, border: "1px solid #f0f0f0", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                  <div style={{ width: 32, height: 32, borderRadius: 7, border: "1px solid #f0f0f0", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", flexShrink: 0 }}>
                     {logo ? (
-                      <img src={logo} alt={stranka.title.rendered} style={{ maxWidth: 32, maxHeight: 26, objectFit: "contain" }} />
+                      <img src={logo} alt={stranka.title.rendered} style={{ maxWidth: 28, maxHeight: 28, objectFit: "contain" }} />
                     ) : (
-                      <span style={{ fontSize: 16 }}>🏢</span>
+                      <span style={{ fontSize: 14 }}>🏢</span>
                     )}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: 14, color: "#111" }} dangerouslySetInnerHTML={{ __html: stranka.title.rendered }} />
-                    {stranka.acf?.domena_url && (
-                      <a
-                        href={stranka.acf.domena_url.startsWith("http") ? stranka.acf.domena_url : `https://${stranka.acf.domena_url}`}
-                        target="_blank" rel="noreferrer"
-                        style={{ fontSize: 12, color: BRAND, textDecoration: "none" }}
-                      >
-                        {stranka.acf.domena_url.replace(/^https?:\/\//, "").replace(/\/$/, "")}
-                      </a>
-                    )}
+                    <div style={{ fontWeight: 700, fontSize: 13, color: "#111", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} dangerouslySetInnerHTML={{ __html: stranka.title.rendered }} />
+                    <div style={{ fontSize: 12, color: daysLeft < 0 ? "#dc2626" : daysLeft <= 5 ? "#d97706" : "#6b7280", marginTop: 1 }}>
+                      Potek: <strong>{formatACFDate(currentDate)}</strong>
+                      {" · "}
+                      {daysLeft < 0 ? `${Math.abs(daysLeft)} dni nazaj` : daysLeft === 0 ? "danes" : `čez ${daysLeft} dni`}
+                    </div>
                   </div>
                   <PotekBadge daysLeft={daysLeft} />
                 </div>
 
-                {/* Vrstica 2: storitev + datum + strošek */}
-                <div style={{ display: "flex", gap: 16, marginBottom: 12, flexWrap: "wrap" }}>
-                  <div>
-                    <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 2 }}>Storitev</div>
-                    <div style={{ fontSize: 13, color: "#555" }}>{getStoritveLabel(stranka.acf?.storitve) || "—"}</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 2 }}>Potek</div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: "#111" }}>{formatACFDate(currentDate)}</div>
-                    <div style={{ fontSize: 11, color: daysLeft < 0 ? "#dc2626" : daysLeft <= 5 ? "#d97706" : "#6b7280" }}>
-                      {daysLeft < 0 ? `${Math.abs(daysLeft)} dni nazaj` : daysLeft === 0 ? "danes" : `čez ${daysLeft} dni`}
-                    </div>
-                  </div>
-                  {cost > 0 && (
-                    <div>
-                      <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 2 }}>Strošek</div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: "#111" }}>{cost} €</div>
-                      {billingLabel && <div style={{ fontSize: 11, color: "#9ca3af" }}>/ {billingMap[billingLabel] || billingLabel}</div>}
-                    </div>
-                  )}
-                </div>
-
-                {/* Vrstica 3: gumbi */}
-                <div style={{ display: "flex", gap: 8 }}>
+                {/* Vrstica 2: gumbi — manjša, v eni vrstici */}
+                <div style={{ display: "flex", gap: 6 }}>
                   <PodaljsajButton
                     strankaId={stranka.id}
                     currentDate={currentDate}
@@ -231,9 +202,8 @@ function StrankeTekoMesec({ stranke: initialStranke, loading }: { stranke: Stran
                     onSuccess={(newDate) => handleDateUpdate(stranka.id, newDate)}
                   />
                   <a
-                    href={`${WP_ADMIN_URL}/post.php?post=${stranka.id}&action=edit`}
-                    target="_blank" rel="noreferrer"
-                    style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid #e5e7eb", background: "#fff", color: "#374151", fontSize: 13, fontWeight: 500, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4 }}
+                    href={`/cpt/stranka/${stranka.slug}`}
+                    style={{ padding: "6px 10px", borderRadius: 7, border: "1px solid #e5e7eb", background: "#fff", color: "#374151", fontSize: 12, fontWeight: 500, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 3 }}
                   >
                     Uredi ↗
                   </a>
