@@ -8,8 +8,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Ni avtorizacije" }, { status: 401 });
   }
 
+  
   const limit = Number(req.nextUrl.searchParams.get("limit") || "50");
-  const entries = readLog().slice(0, limit);
+  const entries = await readLog(limit);
 
   return NextResponse.json({ entries });
 }
