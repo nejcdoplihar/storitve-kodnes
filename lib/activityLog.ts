@@ -1,53 +1,62 @@
 // lib/activityLog.ts
-// Serverska funkcija za beleženje aktivnosti v /data/activity-log.json
-// Kličemo jo samo iz API route-ov (server-side)
-
-import fs from "fs";
-import path from "path";
+// Beleženje aktivnosti v WordPress options (wp_options tabela)
+// Endpoint: /wp-json/kodnes/v1/activity-log
+// PHP koda za WP: kodnes-activity-log.php
 
 export type ActivityAction = "DODANO" | "UREJENO" | "IZBRISANO" | "PODALJŠANO";
 
 export type ActivityEntry = {
-  id: string;           // unikaten ID: timestamp + random
-  title: string;        // naziv zapisa (npr. "Safir", "Ponudba #12")
-  type: string;         // tip vsebine (npr. "Stranka", "Naročnik", "Ponudba", "Opravilo")
+  id: string;
+  title: string;
+  type: string;
   action: ActivityAction;
-  user: string;         // uporabniško ime iz cookie
-  timestamp: string;    // ISO string
+  user: string;
+  timestamp: string;
 };
 
-const LOG_PATH = path.join(process.cwd(), "data", "activity-log.json");
-const MAX_ENTRIES = 200;
+const WP_URL = process.env.NEXT_PUBLIC_WORDPRESS_URL || "";
+const WP_USER = process.env.WP_APP_USER || "";
+const WP_PASS = process.env.WP_APP_PASSWORD || "";
 
-function ensureFile() {
-  const dir = path.dirname(LOG_PATH);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  if (!fs.existsSync(LOG_PATH)) fs.writeFileSync(LOG_PATH, "[]", "utf-8");
+function getCredentials(): string {
+  return Buffer.from(`${WP_USER}:${WP_PASS}`).toString("base64");
 }
 
-export function readLog(): ActivityEntry[] {
+export async function readLog(limit = 50): Promise<ActivityEntry[]> {
   try {
-    ensureFile();
-    return JSON.parse(fs.readFileSync(LOG_PATH, "utf-8")) as ActivityEntry[];
-  } catch {
+    const res = await fetch(
+      `${WP_URL.replace(/\/$/, "")}/wp-json/kodnes/v1/activity-log?limit=${limit}`,
+      {
+        headers: { Authorization: `Basic ${getCredentials()}` },
+        cache: "no-store",
+      }
+    );
+    if (!res.ok) throw new Error(`WP napaka: ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.error("[activityLog] Napaka pri branju:", err);
     return [];
   }
 }
 
-export function logActivity(entry: Omit<ActivityEntry, "id" | "timestamp">) {
+export async function logActivity(entry: Omit<ActivityEntry, "id" | "timestamp">): Promise<void> {
   try {
-    ensureFile();
-    const existing = readLog();
-    const newEntry: ActivityEntry = {
-      ...entry,
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      timestamp: new Date().toISOString(),
-    };
-    // Dodamo na vrh, omejimo na MAX_ENTRIES
-    const updated = [newEntry, ...existing].slice(0, MAX_ENTRIES);
-    fs.writeFileSync(LOG_PATH, JSON.stringify(updated, null, 2), "utf-8");
+    const res = await fetch(
+      `${WP_URL.replace(/\/$/, "")}/wp-json/kodnes/v1/activity-log`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Basic ${getCredentials()}`,
+        },
+        body: JSON.stringify(entry),
+      }
+    );
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`WP napaka: ${err}`);
+    }
   } catch (err) {
-    // Log napake ne sme prekiniti glavne operacije
-    console.error("[activityLog] Napaka pri pisanju loga:", err);
+    console.error("[activityLog] Napaka pri pisanju:", err);
   }
 }
