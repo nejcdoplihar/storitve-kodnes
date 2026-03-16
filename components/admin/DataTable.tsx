@@ -59,26 +59,23 @@ function ModalWrapper({ children, onClose }: { children: React.ReactNode; onClos
       style={{
         position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)",
         zIndex: 1000, display: "flex",
-        alignItems: isMobile ? "flex-end" : "center",
+        alignItems: "center",          // ← vedno center (ne več flex-end na mobilnih)
         justifyContent: "center",
-        padding: isMobile ? 0 : 20,
+        padding: 16,                   // ← vedno padding okrog (kot prijavni obrazec)
       }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div style={{
         background: "#fff",
-        borderRadius: isMobile ? "20px 20px 0 0" : 16,
-        padding: isMobile ? "24px 20px 32px" : 32,
+        borderRadius: 16,              // ← vedno zaobljeni robovi na vseh straneh
+        padding: isMobile ? "24px 18px 28px" : 32,
         width: "100%",
         maxWidth: isMobile ? "100%" : 520,
         boxShadow: "0 8px 40px rgba(0,0,0,0.18)",
-        maxHeight: isMobile ? "92vh" : "90vh",
+        maxHeight: "90vh",
         overflowY: "auto",
       }}>
-        {/* Mobilni "drag handle" */}
-        {isMobile && (
-          <div style={{ width: 40, height: 4, background: "#e5e7eb", borderRadius: 2, margin: "0 auto 20px" }} />
-        )}
+        {/* drag handle odstranjen — ni več bottom sheet */}
         {children}
       </div>
     </div>
