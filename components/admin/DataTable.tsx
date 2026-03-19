@@ -5,13 +5,131 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useWPData, useAllWPData } from "@/hooks/useWPData";
-import { formatDate, getAcfPreview } from "@/lib/helpers";
+import { formatDate, getAcfPreview, formatACFDate, getStoritveLabel } from "@/lib/helpers";
 import { BRAND } from "@/lib/constants";
 import { icons } from "./Icons";
 import { StatusBadge, ConfirmDeleteDialog } from "./UI";
 
 const DELETABLE = ["narocnik", "stranka", "ponudba"];
 const EDITABLE = ["narocnik", "stranka"];
+
+// ============================================================
+// KONFIGURACIJSKI SISTEM STOLPCEV
+// ============================================================
+type ColValue = string | number | boolean | string[] | null | undefined;
+
+type ColDef = {
+  label: string;
+  key?: string;                          // ACF ključ
+  render?: (acf: Record<string, ColValue>, post: AnyPost) => React.ReactNode;
+  width?: number;
+  hideOnMobile?: boolean;
+};
+
+// Status badge za stanje_storitve (true/false → Aktivno/Neaktivno)
+function StanjeBadge({ value }: { value: ColValue }) {
+  const active = value === true || value === "true" || value === 1;
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 5,
+      padding: "3px 10px", borderRadius: 20, fontSize: 12, fontWeight: 500,
+      background: active ? "#dcfce7" : "#f3f4f6",
+      color: active ? "#15803d" : "#6b7280",
+    }}>
+      <span style={{ width: 6, height: 6, borderRadius: "50%", background: active ? "#22c55e" : "#9ca3af" }} />
+      {active ? "Aktivno" : "Neaktivno"}
+    </span>
+  );
+}
+
+// Tip storitve kot pill-i
+function StoritvePills({ value }: { value: ColValue }) {
+  const STORITVE_LABELS: Record<string, string> = {
+    domena: "Domena", gostovanje: "Gostovanje",
+    dom_gos: "Dom. & gost.", vzdrzevanje: "Vzdrž.",
+  };
+  const items = Array.isArray(value) ? value : (value ? [String(value)] : []);
+  if (!items.length) return <span style={{ color: "#bbb", fontSize: 12 }}>—</span>;
+  return (
+    <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+      {items.map((s) => (
+        <span key={s} style={{
+          padding: "2px 8px", borderRadius: 12, fontSize: 11, fontWeight: 500,
+          background: `${BRAND}15`, color: BRAND,
+        }}>
+          {STORITVE_LABELS[s] || s}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+// Konfiguracija po CPT-jih
+const CPT_COLUMNS: Record<string, ColDef[]> = {
+  stranka: [
+    {
+      label: "Stanje",
+      render: (acf) => <StanjeBadge value={acf.stanje_storitve} />,
+      width: 110,
+    },
+    {
+      label: "Tip storitve",
+      render: (acf) => <StoritvePills value={acf.storitve} />,
+      width: 180,
+    },
+  ],
+  narocnik: [
+    { label: "Kontakt", key: "narocnik_kontaktna_oseba", width: 160 },
+    { label: "Naslov", key: "narocnik_naslov", width: 180, hideOnMobile: true },
+  ],
+  ponudba: [
+    { label: "Znesek", render: (acf) => acf.znesek ? `${acf.znesek} €` : "—", width: 100 },
+    {
+      label: "Status", render: (acf) => {
+        const labels: Record<string, string> = { v_obdelavi: "V obdelavi", poslana: "Poslana", sprejeta: "Sprejeta", zavrnjena: "Zavrnjena" };
+        const s = String(acf.status_ponudbe || "");
+        return <span style={{ fontSize: 12, color: "#555" }}>{labels[s] || s || "—"}</span>;
+      }, width: 110,
+    },
+  ],
+};
+
+// Podrobnosti pod naslovom po CPT-jih
+const CPT_SUBTITLE: Record<string, (acf: Record<string, ColValue>) => React.ReactNode> = {
+  stranka: (acf) => {
+    const parts: string[] = [];
+    if (acf.potek_storitev) parts.push(`Potek: ${formatACFDate(String(acf.potek_storitev))}`);
+    if (acf.strosek) parts.push(`${acf.strosek} €`);
+    if (acf.strosek_obracun) {
+      const obr: Record<string, string> = { letno: "letno", mesecno: "mes.", trimesecno: "trimesečno", polletno: "polletno", po_dogovoru: "po dogovoru" };
+      const v = Array.isArray(acf.strosek_obracun) ? acf.strosek_obracun[0] : String(acf.strosek_obracun);
+      if (v) parts.push(obr[v] || v);
+    }
+    if (acf.opombe) parts.push(String(acf.opombe).slice(0, 40) + (String(acf.opombe).length > 40 ? "…" : ""));
+    if (!parts.length) return null;
+    return (
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 3 }}>
+        {parts.map((p, i) => (
+          <span key={i} style={{ fontSize: 11, color: "#888" }}>{p}</span>
+        ))}
+      </div>
+    );
+  },
+  narocnik: (acf) => {
+    const parts: string[] = [];
+    if (acf.narocnik_kontaktna_oseba) parts.push(String(acf.narocnik_kontaktna_oseba));
+    if (acf.narocnik_naslov) parts.push(String(acf.narocnik_naslov));
+    if (!parts.length) return null;
+    return (
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 3 }}>
+        {parts.map((p, i) => (
+          <span key={i} style={{ fontSize: 11, color: "#888" }}>{p}</span>
+        ))}
+      </div>
+    );
+  },
+};
+
 
 // ============================================================
 // HOOK: zaznaj mobilno napravo
@@ -342,7 +460,7 @@ function UrediStrankaModal({ post, onClose, onSaved }: { post: StrankaPost; onCl
 // ============================================================
 // DATA TABLE — MOBILNE KARTICE + DESKTOP TABELA
 // ============================================================
-type AnyPost = NarocnikPost & StrankaPost & { slug: string; date: string; status: string };
+type AnyPost = NarocnikPost & StrankaPost & { slug: string; date: string; status: string; acf?: Record<string, ColValue> };
 
 export function DataTable({ cptSlug, onAdd }: { cptSlug: string; onAdd?: () => void }) {
   const [search, setSearch] = useState("");
@@ -443,7 +561,9 @@ export function DataTable({ cptSlug, onAdd }: { cptSlug: string; onAdd?: () => v
             /* ── MOBILNI PRIKAZ: kartice ── */
             <div>
               {filtered.map((post, i) => {
-                const acfPreview = getAcfPreview(post.acf);
+                const acf = (post.acf || {}) as Record<string, ColValue>;
+                const cols = CPT_COLUMNS[cptSlug] || [];
+                const subtitleFn = CPT_SUBTITLE[cptSlug];
                 return (
                   <div
                     key={post.id}
@@ -452,16 +572,26 @@ export function DataTable({ cptSlug, onAdd }: { cptSlug: string; onAdd?: () => v
                       borderBottom: i < filtered.length - 1 ? "1px solid #f5f5f5" : "none",
                     }}
                   >
-                    {/* Naslov + status */}
-                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
-                      <div style={{ fontWeight: 600, fontSize: 14, color: "#111", flex: 1 }} dangerouslySetInnerHTML={{ __html: post.title.rendered }} />
-                      <StatusBadge status={post.status} />
-                    </div>
+                    {/* Naslov + podrobnosti */}
+                    <div style={{ fontWeight: 600, fontSize: 14, color: "#111", marginBottom: 4 }} dangerouslySetInnerHTML={{ __html: post.title.rendered }} />
+                    {subtitleFn && subtitleFn(acf)}
 
-                    {/* ACF preview — skrit na mobilnem */}
+                    {/* Dinamični stolpci kot inline pills */}
+                    {cols.length > 0 && (
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 6 }}>
+                        {cols.filter(c => !c.hideOnMobile).map((col) => (
+                          <span key={col.label}>
+                            {col.render
+                              ? col.render(acf, post as AnyPost)
+                              : <span style={{ fontSize: 12, color: "#555" }}>{col.key && acf[col.key] != null ? String(acf[col.key]) : null}</span>
+                            }
+                          </span>
+                        ))}
+                      </div>
+                    )}
 
                     {/* Datum + akcije */}
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 8 }}>
                       <span style={{ fontSize: 12, color: "#aaa" }}>{formatDate(post.date)}</span>
                       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                         {EDITABLE.includes(cptSlug) ? (
@@ -494,64 +624,72 @@ export function DataTable({ cptSlug, onAdd }: { cptSlug: string; onAdd?: () => v
               })}
             </div>
           ) : (
-            /* ── DESKTOP PRIKAZ: tabela ── */
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr style={{ background: "#fafafa" }}>
-                  {["Naslov", "Datum", "Status", ""].map((h) => (
-                    <th key={h} style={{ padding: "11px 20px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#888", borderBottom: "1px solid #f0f0f0" }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((post, i) => {
-                  const acfPreview = getAcfPreview(post.acf);
-                  return (
-                    <tr key={post.id} style={{ borderBottom: i < filtered.length - 1 ? "1px solid #f7f7f7" : "none" }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = "#fafafa")}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                    >
-                      <td style={{ padding: "14px 20px" }}>
-                        <div style={{ fontWeight: 600, fontSize: 14, color: "#111" }} dangerouslySetInnerHTML={{ __html: post.title.rendered }} />
-                        {acfPreview.length > 0 && (
-                          <div style={{ display: "flex", gap: 12, marginTop: 4, flexWrap: "wrap" }}>
-                            {acfPreview.map(([key, val]) => (
-                              <span key={key} style={{ fontSize: 11, color: "#888" }}>
-                                <span style={{ color: "#bbb" }}>{key}: </span>{String(val)}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </td>
-                      <td style={{ padding: "14px 20px", fontSize: 13, color: "#666" }}>{formatDate(post.date)}</td>
-                      <td style={{ padding: "14px 20px" }}><StatusBadge status={post.status} /></td>
-                      <td style={{ padding: "14px 20px" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          {EDITABLE.includes(cptSlug) ? (
-                            <button onClick={() => setEditTarget(post as AnyPost)} style={{ fontSize: 13, color: BRAND, fontWeight: 500, background: "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 2, padding: 0 }}>
-                              Uredi {icons.arrow}
-                            </button>
-                          ) : (
-                            <a href={`/cpt/${cptSlug}/${post.slug}`} style={{ fontSize: 13, color: BRAND, fontWeight: 500, textDecoration: "none", display: "flex", alignItems: "center", gap: 2 }}>
-                              Odpri {icons.arrow}
-                            </a>
-                          )}
-                          {DELETABLE.includes(cptSlug) && (
-                            <button onClick={() => setDeleteTarget({ id: post.id, naziv: post.title.rendered.replace(/<[^>]*>/g, "") })} title="Premakni v koš"
-                              style={{ border: "none", background: "transparent", cursor: "pointer", color: "#d1d5db", padding: 4, borderRadius: 6 }}
-                              onMouseEnter={(e) => (e.currentTarget.style.color = "#dc2626")}
-                              onMouseLeave={(e) => (e.currentTarget.style.color = "#d1d5db")}
-                            >
-                              {icons.trash}
-                            </button>
-                          )}
-                        </div>
-                      </td>
+            /* ── DESKTOP PRIKAZ: tabela z dinamičnimi stolpci ── */
+            (() => {
+              const cols = CPT_COLUMNS[cptSlug] || [];
+              const subtitleFn = CPT_SUBTITLE[cptSlug];
+              return (
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr style={{ background: "#fafafa" }}>
+                      <th style={{ padding: "11px 20px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#888", borderBottom: "1px solid #f0f0f0" }}>Naslov</th>
+                      {cols.map((col) => (
+                        <th key={col.label} style={{ padding: "11px 16px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#888", borderBottom: "1px solid #f0f0f0", width: col.width, whiteSpace: "nowrap" }}>{col.label}</th>
+                      ))}
+                      <th style={{ padding: "11px 20px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#888", borderBottom: "1px solid #f0f0f0" }}>Datum</th>
+                      <th style={{ padding: "11px 20px", width: 80, borderBottom: "1px solid #f0f0f0" }}></th>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                  </thead>
+                  <tbody>
+                    {filtered.map((post, i) => {
+                      const acf = (post.acf || {}) as Record<string, ColValue>;
+                      return (
+                        <tr key={post.id} style={{ borderBottom: i < filtered.length - 1 ? "1px solid #f7f7f7" : "none" }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = "#fafafa")}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                        >
+                          <td style={{ padding: "14px 20px" }}>
+                            <div style={{ fontWeight: 600, fontSize: 14, color: "#111" }} dangerouslySetInnerHTML={{ __html: post.title.rendered }} />
+                            {subtitleFn && subtitleFn(acf)}
+                          </td>
+                          {cols.map((col) => (
+                            <td key={col.label} style={{ padding: "14px 16px", verticalAlign: "middle" }}>
+                              {col.render
+                                ? col.render(acf, post as AnyPost)
+                                : <span style={{ fontSize: 13, color: "#555" }}>{col.key && acf[col.key] != null ? String(acf[col.key]) : "—"}</span>
+                              }
+                            </td>
+                          ))}
+                          <td style={{ padding: "14px 20px", fontSize: 13, color: "#666", whiteSpace: "nowrap" }}>{formatDate(post.date)}</td>
+                          <td style={{ padding: "14px 20px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                              {EDITABLE.includes(cptSlug) ? (
+                                <button onClick={() => setEditTarget(post as AnyPost)} style={{ fontSize: 13, color: BRAND, fontWeight: 500, background: "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 2, padding: 0 }}>
+                                  Uredi {icons.arrow}
+                                </button>
+                              ) : (
+                                <a href={`/cpt/${cptSlug}/${post.slug}`} style={{ fontSize: 13, color: BRAND, fontWeight: 500, textDecoration: "none", display: "flex", alignItems: "center", gap: 2 }}>
+                                  Odpri {icons.arrow}
+                                </a>
+                              )}
+                              {DELETABLE.includes(cptSlug) && (
+                                <button onClick={() => setDeleteTarget({ id: post.id, naziv: post.title.rendered.replace(/<[^>]*>/g, "") })} title="Premakni v koš"
+                                  style={{ border: "none", background: "transparent", cursor: "pointer", color: "#d1d5db", padding: 4, borderRadius: 6 }}
+                                  onMouseEnter={(e) => (e.currentTarget.style.color = "#dc2626")}
+                                  onMouseLeave={(e) => (e.currentTarget.style.color = "#d1d5db")}
+                                >
+                                  {icons.trash}
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              );
+            })()
           )
         )}
 

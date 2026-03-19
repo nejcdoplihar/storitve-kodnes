@@ -11,11 +11,114 @@ export function formatDate(date: string): string {
   }
 }
 
+// Človeški labeli za ACF ključe
+const ACF_LABELS: Record<string, string> = {
+  // Stranka
+  stanje_storitve:     "Stanje",
+  storitve:            "Storitev",
+  domena_url:          "Domena",
+  potek_storitev:      "Potek",
+  strosek:             "Strošek",
+  strosek_obracun:     "Obračun",
+  opombe:              "Opombe",
+  stanje_vzdrzevanja:  "Vzdrževanje",
+  // Naročnik
+  narocnik_naziv:           "Naziv",
+  narocnik_kontaktna_oseba: "Kontakt",
+  narocnik_naslov:          "Naslov",
+  narocnik_postna_stevilka: "Poštna št.",
+  narocnik_posta:           "Pošta",
+  narocnik_davcna_stevilka: "Davčna št.",
+  // Ponudba
+  znesek:          "Znesek",
+  status_ponudbe:  "Status",
+  veljavnost:      "Veljavnost",
+  // Opravilo
+  datum_opravila:  "Datum",
+  uporabnik:       "Uporabnik",
+  naslov_opravila: "Naslov",
+  cas_ure:         "Čas",
+  placano:         "Plačano",
+};
+
+const OBRACUN_LABELS: Record<string, string> = {
+  letno: "Letno", mesecno: "Mesečno", trimesecno: "Trimesečno",
+  polletno: "Polletno", po_dogovoru: "Po dogovoru",
+};
+
+const STATUS_PONUDBE_LABELS: Record<string, string> = {
+  v_obdelavi: "V obdelavi", poslana: "Poslana",
+  sprejeta: "Sprejeta", zavrnjena: "Zavrnjena",
+};
+
+// Pretvori surovo ACF vrednost v berljiv string
+function formatAcfValue(key: string, value: unknown): string {
+  if (value === null || value === undefined) return "—";
+
+  // Boolean
+  if (typeof value === "boolean") return value ? "Da" : "Ne";
+  if (value === "true" || value === "1") return "Da";
+  if (value === "false" || value === "0") return "Ne";
+
+  // Storitve (array ali string)
+  if (key === "storitve") return getStoritveLabel(value as string | string[]);
+
+  // Obračun
+  if (key === "strosek_obracun") {
+    const v = Array.isArray(value) ? value[0] : String(value);
+    return OBRACUN_LABELS[v] || v;
+  }
+
+  // Status ponudbe
+  if (key === "status_ponudbe") return STATUS_PONUDBE_LABELS[String(value)] || String(value);
+
+  // ACF datum YYYYMMDD
+  if ((key === "potek_storitev" || key === "datum_opravila" || key === "veljavnost") && String(value).length === 8) {
+    return formatACFDate(String(value));
+  }
+
+  // Strošek z €
+  if (key === "strosek" && value !== "") return `${value} €`;
+
+  // Čas ur
+  if (key === "cas_ure") return `${value} ur`;
+
+  // Array → join
+  if (Array.isArray(value)) return value.filter(Boolean).join(", ") || "—";
+
+  // Prazno
+  const str = String(value).trim();
+  return str || "—";
+}
+
 export function getAcfPreview(acf?: Record<string, unknown>): [string, unknown][] {
   if (!acf) return [];
+
+  // Ključi ki jih preskočimo v pregledu (niso koristni za prikaz v tabeli)
+  const SKIP = new Set([
+    "narocnik_naziv", // = title, odvečno
+    "naslov_opravila", // = title
+    "opis_opravila",
+    "custom_postavka",
+    "urna_postavka",
+    "stranka_rel",
+    "logo",
+  ]);
+
   return Object.entries(acf)
-    .filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== "")
-    .slice(0, 3);
+    .filter(([key, value]) => {
+      if (SKIP.has(key)) return false;
+      if (value === null || value === undefined) return false;
+      if (typeof value === "boolean") return true; // prikaži tudi false vrednosti
+      if (Array.isArray(value) && value.length === 0) return false;
+      const str = String(value).trim();
+      return str !== "" && str !== "false" || typeof value === "boolean";
+    })
+    .slice(0, 4)
+    .map(([key, value]) => [
+      ACF_LABELS[key] || key,   // label namesto slug-a
+      formatAcfValue(key, value), // formatirana vrednost
+    ]);
 }
 
 export function getStoritveLabel(s: string | string[]): string {

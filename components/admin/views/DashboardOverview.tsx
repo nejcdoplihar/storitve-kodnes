@@ -96,6 +96,7 @@ function StrankeTekoMesec({ stranke: initialStranke, loading }: { stranke: Stran
   const thisMonth = useMemo(() => {
     return initialStranke
       .filter((s) => {
+        if (!s.acf?.stanje_storitve) return false; // samo aktivne
         const date = overrides[s.id] || s.acf?.potek_storitev;
         return date && isThisMonth(date);
       })
@@ -332,6 +333,11 @@ export function DashboardOverview() {
   const { stranke: strankeDetailed, loading: strankeLoading } = useStranke();
   const isMobile = useIsMobile();
 
+  // Samo stranke z aktivno storitvijo (stanje_storitve === true)
+  const aktivneStranke = useMemo(() => {
+    return strankeDetailed.filter((s) => s.acf?.stanje_storitve === true);
+  }, [strankeDetailed]);
+
   const [activityLog, setActivityLog] = useState<ActivityEntry[]>([]);
   const [activityLoading, setActivityLoading] = useState(true);
   const [activityPage, setActivityPage] = useState(1);
@@ -357,7 +363,7 @@ export function DashboardOverview() {
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)", gap: isMobile ? 8 : 16, marginBottom: isMobile ? 16 : 28 }}>
         <StatCard label="Naročniki" value={narocniki.total} loading={narocniki.loading} color="#00a4a7" icon={icons.users} compact={isMobile} />
         <StatCard label="Ponudbe" value={ponudbe.total} loading={ponudbe.loading} color="#10b981" icon={icons.file} compact={isMobile} />
-        <StatCard label="Stranke" value={stranke.total} loading={stranke.loading} color="#f59e0b" icon={icons.building} compact={isMobile} />
+        <StatCard label="Aktivne stranke" value={aktivneStranke.length} loading={strankeLoading} color="#f59e0b" icon={icons.building} compact={isMobile} />
       </div>
 
       {/* Stranke ta mesec */}
