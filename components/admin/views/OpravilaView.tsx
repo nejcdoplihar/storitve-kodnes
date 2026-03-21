@@ -581,15 +581,11 @@ export function OpravilaTabela({
   const updatePlacano = async (ids: number[], placano: boolean) => {
     setUpdatingIds(new Set(ids));
     try {
-      await Promise.all(
-        ids.map((id) =>
-          fetch("/api/opravilo/update", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id, placano }),
-          })
-        )
-      );
+      await fetch("/api/opravilo/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids, placano }),
+      });
       await onRefetch();
       setSelected(new Set());
     } finally {

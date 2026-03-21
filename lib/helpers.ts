@@ -11,114 +11,11 @@ export function formatDate(date: string): string {
   }
 }
 
-// Človeški labeli za ACF ključe
-const ACF_LABELS: Record<string, string> = {
-  // Stranka
-  stanje_storitve:     "Stanje",
-  storitve:            "Storitev",
-  domena_url:          "Domena",
-  potek_storitev:      "Potek",
-  strosek:             "Strošek",
-  strosek_obracun:     "Obračun",
-  opombe:              "Opombe",
-  stanje_vzdrzevanja:  "Vzdrževanje",
-  // Naročnik
-  narocnik_naziv:           "Naziv",
-  narocnik_kontaktna_oseba: "Kontakt",
-  narocnik_naslov:          "Naslov",
-  narocnik_postna_stevilka: "Poštna št.",
-  narocnik_posta:           "Pošta",
-  narocnik_davcna_stevilka: "Davčna št.",
-  // Ponudba
-  znesek:          "Znesek",
-  status_ponudbe:  "Status",
-  veljavnost:      "Veljavnost",
-  // Opravilo
-  datum_opravila:  "Datum",
-  uporabnik:       "Uporabnik",
-  naslov_opravila: "Naslov",
-  cas_ure:         "Čas",
-  placano:         "Plačano",
-};
-
-const OBRACUN_LABELS: Record<string, string> = {
-  letno: "Letno", mesecno: "Mesečno", trimesecno: "Trimesečno",
-  polletno: "Polletno", po_dogovoru: "Po dogovoru",
-};
-
-const STATUS_PONUDBE_LABELS: Record<string, string> = {
-  v_obdelavi: "V obdelavi", poslana: "Poslana",
-  sprejeta: "Sprejeta", zavrnjena: "Zavrnjena",
-};
-
-// Pretvori surovo ACF vrednost v berljiv string
-function formatAcfValue(key: string, value: unknown): string {
-  if (value === null || value === undefined) return "—";
-
-  // Boolean
-  if (typeof value === "boolean") return value ? "Da" : "Ne";
-  if (value === "true" || value === "1") return "Da";
-  if (value === "false" || value === "0") return "Ne";
-
-  // Storitve (array ali string)
-  if (key === "storitve") return getStoritveLabel(value as string | string[]);
-
-  // Obračun
-  if (key === "strosek_obracun") {
-    const v = Array.isArray(value) ? value[0] : String(value);
-    return OBRACUN_LABELS[v] || v;
-  }
-
-  // Status ponudbe
-  if (key === "status_ponudbe") return STATUS_PONUDBE_LABELS[String(value)] || String(value);
-
-  // ACF datum YYYYMMDD
-  if ((key === "potek_storitev" || key === "datum_opravila" || key === "veljavnost") && String(value).length === 8) {
-    return formatACFDate(String(value));
-  }
-
-  // Strošek z €
-  if (key === "strosek" && value !== "") return `${value} €`;
-
-  // Čas ur
-  if (key === "cas_ure") return `${value} ur`;
-
-  // Array → join
-  if (Array.isArray(value)) return value.filter(Boolean).join(", ") || "—";
-
-  // Prazno
-  const str = String(value).trim();
-  return str || "—";
-}
-
 export function getAcfPreview(acf?: Record<string, unknown>): [string, unknown][] {
   if (!acf) return [];
-
-  // Ključi ki jih preskočimo v pregledu (niso koristni za prikaz v tabeli)
-  const SKIP = new Set([
-    "narocnik_naziv", // = title, odvečno
-    "naslov_opravila", // = title
-    "opis_opravila",
-    "custom_postavka",
-    "urna_postavka",
-    "stranka_rel",
-    "logo",
-  ]);
-
   return Object.entries(acf)
-    .filter(([key, value]) => {
-      if (SKIP.has(key)) return false;
-      if (value === null || value === undefined) return false;
-      if (typeof value === "boolean") return true; // prikaži tudi false vrednosti
-      if (Array.isArray(value) && value.length === 0) return false;
-      const str = String(value).trim();
-      return str !== "" && str !== "false" || typeof value === "boolean";
-    })
-    .slice(0, 4)
-    .map(([key, value]) => [
-      ACF_LABELS[key] || key,   // label namesto slug-a
-      formatAcfValue(key, value), // formatirana vrednost
-    ]);
+    .filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== "")
+    .slice(0, 3);
 }
 
 export function getStoritveLabel(s: string | string[]): string {
@@ -128,9 +25,22 @@ export function getStoritveLabel(s: string | string[]): string {
 }
 
 // ACF datum "20260311" → Date
+// Pretvori ACF datum v Date objekt
+// Podpira: YYYYMMDD (20260316) in d/m/Y (16/03/2026)
 export function parseACFDate(d: string): Date | null {
-  if (!d || d.length !== 8) return null;
-  return new Date(`${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`);
+  if (!d) return null;
+  // Format YYYYMMDD
+  if (/^\d{8}$/.test(d)) {
+    return new Date(`${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`);
+  }
+  // Format d/m/Y (16/03/2026) ali d.m.Y
+  const parts = d.split(/[\/\.]/).map(Number);
+  if (parts.length === 3) {
+    const [day, month, year] = parts;
+    if (year > 1000) return new Date(year, month - 1, day); // d/m/Y
+    return new Date(parts[0], parts[1] - 1, parts[2]); // Y/m/d fallback
+  }
+  return null;
 }
 
 export function formatACFDate(d: string): string {
@@ -152,10 +62,11 @@ export function isThisMonth(d: string): boolean {
   return dt.getFullYear() === now.getFullYear() && dt.getMonth() === now.getMonth();
 }
 
-// Format ACF date YYYYMMDD → sl-SI
+// Format ACF datum → sl-SI (podpira YYYYMMDD in d/m/Y)
 export function fmtDate(d: string): string {
-  if (!d || d.length !== 8) return d || "—";
-  return new Date(`${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`).toLocaleDateString("sl-SI");
+  const dt = parseACFDate(d);
+  if (!dt) return d || "—";
+  return dt.toLocaleDateString("sl-SI");
 }
 
 // Today as YYYYMMDD
