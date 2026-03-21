@@ -2,7 +2,6 @@
 // app/admin/page.tsx — mobilno prilagojen layout s hamburger menijem
 
 import { useState, useEffect } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
 import { BRAND } from "@/lib/constants";
 import { icons } from "@/components/admin/Icons";
 import { GlobalSearchBar } from "@/components/admin/GlobalSearchBar";
@@ -165,13 +164,7 @@ function SidebarContent({
 // MAIN DASHBOARD
 // ============================================================
 export default function Dashboard() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-
-  const viewFromUrl = searchParams.get("view") as ActiveView | null;
-  const [activeView, setActiveView] = useState<ActiveView>(
-    viewFromUrl && titles[viewFromUrl] ? viewFromUrl : "dashboard"
-  );
+  const [activeView, setActiveView] = useState<ActiveView>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -191,24 +184,26 @@ export default function Dashboard() {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  // Sync activeView ko se URL query param spremeni (npr. po kliku Nazaj)
+  // Sync view from URL — ob mountu in ob browser Back/Forward
   useEffect(() => {
-    const view = searchParams.get("view") as ActiveView | null;
-    if (view && titles[view] && view !== activeView) {
-      setActiveView(view);
-    } else if (!view && activeView !== "dashboard") {
-      setActiveView("dashboard");
-    }
-  }, [searchParams]);
+    const syncFromUrl = () => {
+      const params = new URLSearchParams(window.location.search);
+      const view = params.get("view") as ActiveView | null;
+      setActiveView(view && titles[view] ? view : "dashboard");
+    };
 
-  // Zapri mobilni meni ob spremembi view-a
+    syncFromUrl(); // ob mountu
+    window.addEventListener("popstate", syncFromUrl); // ob Back/Forward
+    return () => window.removeEventListener("popstate", syncFromUrl);
+  }, []);
+
+  // Zapri mobilni meni ob spremembi view-a + posodobi URL
   const handleNavigate = (view: ActiveView) => {
     setActiveView(view);
     setMobileMenuOpen(false);
     // Posodobi URL brez page reload
-    const params = new URLSearchParams();
-    if (view !== "dashboard") params.set("view", view);
-    router.replace(params.toString() ? `?${params.toString()}` : "/admin", { scroll: false });
+    const url = view === "dashboard" ? "/admin" : `/admin?view=${view}`;
+    window.history.pushState(null, "", url);
   };
 
   const handleSaved = () => setDataTableKey((k) => k + 1);
