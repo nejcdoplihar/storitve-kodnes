@@ -21,7 +21,6 @@ type PostWithAuthor = WPPost & {
 };
 
 
-const BRAND = "#00a4a7";
 
 interface Props {
   params: Promise<{ type: string; slug: string }>;
