@@ -5,6 +5,20 @@ import type { ReactNode } from "react";
 import { OpravilaSection, UrediStrankoButton } from "./OpravilaSection";
 import { getCPTPostBySlug, getAllCPTSlugs, getFeaturedImageUrl, formatDate } from "@/lib/wordpress";
 import { CPT_CONFIGS } from "@/types/wordpress";
+import type { WPPost } from "@/types/wordpress";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+const BRAND = "#00a4a7";
+
+// Razširimo WPPost s tipom za embedded avtorja
+type PostWithAuthor = WPPost & {
+  _embedded?: {
+    "wp:featuredmedia"?: Array<{ source_url: string; media_details?: { sizes?: Record<string, { source_url: string }> } }>;
+    author?: Array<{ id: number; name: string; slug: string }>;
+  };
+};
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -122,11 +136,11 @@ function Card({ title, children, action }: { title: string; children: ReactNode;
 
 function DetailRow({ label, value, compact }: { label: string; value: ReactNode; compact?: boolean }) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: compact ? "90px 1fr" : "160px 1fr", gap: 12, padding: "11px 0", borderBottom: "1px solid #f7f7f7", alignItems: "start" }}>
+    <div style={{ display: "grid", gridTemplateColumns: compact ? "100px 1fr" : "160px 1fr", gap: 12, padding: "11px 0", borderBottom: "1px solid #f7f7f7", alignItems: "start" }}>
       <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.06em", paddingTop: 3 }}>
         {label}
       </div>
-      <div style={{ fontSize: 13, color: "#111", wordBreak: "break-word" }}>
+      <div style={{ fontSize: 14, color: "#111", wordBreak: "break-word" }}>
         {value ?? <span style={{ color: "#bbb" }}>—</span>}
       </div>
     </div>
@@ -197,7 +211,7 @@ export async function generateStaticParams() {
 
 export async function generateMetadata({ params }: Props) {
   const { type, slug } = await params;
-  const post = await getCPTPostBySlug(type, slug).catch(() => null);
+  const post = await getCPTPostBySlug(type, slug).catch(() => null) as PostWithAuthor | null;
   if (!post) return { title: "Ni najdeno" };
   return { title: stripHtml(post.title?.rendered) || "Podrobnosti" };
 }
@@ -208,7 +222,7 @@ export default async function CPTSinglePage({ params }: Props) {
   const cpt = CPT_CONFIGS.find((c) => c.slug === type);
   if (!cpt) notFound();
 
-  const post = await getCPTPostBySlug(type, slug).catch(() => null);
+  const post = await getCPTPostBySlug(type, slug).catch(() => null) as PostWithAuthor | null;
   if (!post) notFound();
 
   const imageUrl = getFeaturedImageUrl(post, "full");
@@ -255,7 +269,7 @@ export default async function CPTSinglePage({ params }: Props) {
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
             {/* Logo inline z naslovom */}
             {imageUrl && (
-              <div style={{ width: 85, height: 85, borderRadius: 10, overflow: "hidden", border: "1px solid #f0f0f0", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
+              <div style={{ width: 56, height: 56, borderRadius: 10, overflow: "hidden", border: "1px solid #f0f0f0", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
                 <img src={imageUrl} alt={title} style={{ width: "100%", height: "100%", objectFit: "contain", padding: 4 }} />
               </div>
             )}
@@ -315,13 +329,13 @@ export default async function CPTSinglePage({ params }: Props) {
                 <span style={{ fontFamily: "monospace", fontSize: 12, background: "#f5f5f5", padding: "2px 6px", borderRadius: 4, color: "#374151" }}>{post.slug}</span>
               } />
               <DetailRow compact label="Objavljeno" value={formatDate(post.date)} />
-              {post.author_name && (
+              {post._embedded?.author?.[0]?.name && (
                 <DetailRow compact label="Avtor" value={
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                     <span style={{ width: 22, height: 22, borderRadius: "50%", background: BRAND, color: "#fff", fontSize: 10, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
-                      {String(post.author_name).charAt(0).toUpperCase()}
+                      {String(post._embedded.author[0].name).charAt(0).toUpperCase()}
                     </span>
-                    {post.author_name}
+                    {post._embedded.author[0].name}
                   </span>
                 } />
               )}
@@ -350,7 +364,7 @@ export default async function CPTSinglePage({ params }: Props) {
                   padding: "10px 16px", borderRadius: 8, border: "1px solid #e5e7eb",
                   background: "#fff", color: "#374151", textDecoration: "none", fontSize: 13, fontWeight: 500,
                 }}>
-                  Začetni prikaz
+                  Pregled
                 </Link>
               </div>
             </Card>
