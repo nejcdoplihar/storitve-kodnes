@@ -20,8 +20,6 @@ type PostWithAuthor = WPPost & {
   };
 };
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
 
 const BRAND = "#00a4a7";
 
