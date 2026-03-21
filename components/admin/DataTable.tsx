@@ -168,68 +168,58 @@ const labelStyle = {
 };
 
 // ============================================================
-// SKUPNE MODAL KOMPONENTE (mobilno prilagojene)
+// SKUPNE MODAL KOMPONENTE — usklajene s stilom OpravilaSection
 // ============================================================
-function ModalWrapper({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
-  const isMobile = useIsMobile();
+function ModalWrapper({ title, subtitle, onClose, onSave, saving, saveLabel, children }: {
+  title: string; subtitle?: string; onClose: () => void;
+  onSave: () => void; saving: boolean; saveLabel?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <div
-      style={{
-        position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)",
-        zIndex: 1000, display: "flex",
-        alignItems: "center",          // ← vedno center (ne več flex-end na mobilnih)
-        justifyContent: "center",
-        padding: 16,                   // ← vedno padding okrog (kot prijavni obrazec)
-      }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <div style={{
-        background: "#fff",
-        borderRadius: 16,              // ← vedno zaobljeni robovi na vseh straneh
-        padding: isMobile ? "24px 18px 28px" : 32,
-        width: "100%",
-        maxWidth: isMobile ? "100%" : 520,
-        boxShadow: "0 8px 40px rgba(0,0,0,0.18)",
-        maxHeight: "90vh",
-        overflowY: "auto",
-      }}>
-        {/* drag handle odstranjen — ni več bottom sheet */}
-        {children}
-      </div>
-    </div>
-  );
-}
-
-function ModalHeader({ title, subtitle, onClose }: { title: string; subtitle: string; onClose: () => void }) {
-  return (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
-      <div>
-        <div style={{ fontWeight: 700, fontSize: 17, color: "#111" }}>{title}</div>
-        <div style={{ fontSize: 13, color: "#aaa", marginTop: 2 }}>{subtitle}</div>
-      </div>
-      <button onClick={onClose} style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: 22, color: "#aaa", lineHeight: 1, padding: "0 0 0 12px" }}>×</button>
-    </div>
-  );
-}
-
-function ModalFooter({ error, saving, onClose, onSave }: { error: string; saving: boolean; onClose: () => void; onSave: () => void }) {
-  return (
-    <>
-      {error && (
-        <div style={{ marginTop: 14, padding: "10px 14px", background: "#fef2f2", color: "#dc2626", borderRadius: 8, fontSize: 13 }}>
-          {error}
+    <div style={{ position: "fixed", inset: 0, zIndex: 9000, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <div style={{ background: "#fff", borderRadius: 16, width: "min(560px, 92vw)", maxHeight: "90vh", display: "flex", flexDirection: "column", boxShadow: "0 20px 60px rgba(0,0,0,0.2)", overflow: "hidden" }}>
+        {/* Header */}
+        <div style={{ padding: "20px 24px", borderBottom: "1px solid #f0f0f0", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+          <div>
+            <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "#111" }}>{title}</h2>
+            {subtitle && <div style={{ fontSize: 13, color: "#9ca3af", marginTop: 2 }}>{subtitle}</div>}
+          </div>
+          <button onClick={onClose} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#9ca3af", display: "flex", alignItems: "center", padding: 4, borderRadius: 6 }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
         </div>
-      )}
-      <div style={{ display: "flex", gap: 10, marginTop: 24, justifyContent: "flex-end" }}>
-        <button onClick={onClose} style={{ padding: "9px 18px", borderRadius: 8, border: "1px solid #e5e7eb", background: "#fff", color: "#555", fontSize: 14, cursor: "pointer", fontWeight: 500 }}>
-          Prekliči
-        </button>
-        <button onClick={onSave} disabled={saving} style={{ padding: "9px 22px", borderRadius: 8, border: "none", background: saving ? "#9ca3af" : BRAND, color: "#fff", fontSize: 14, fontWeight: 600, cursor: saving ? "not-allowed" : "pointer", flex: 1 }}>
-          {saving ? "Shranjujem..." : "Shrani spremembe"}
-        </button>
+        {/* Body */}
+        <div style={{ padding: "20px 24px", overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: 14 }}>
+          {children}
+        </div>
+        {/* Footer */}
+        <div style={{ padding: "16px 24px", borderTop: "1px solid #f0f0f0", display: "flex", gap: 10, justifyContent: "flex-end", flexShrink: 0 }}>
+          <button onClick={onClose} style={{ padding: "9px 18px", borderRadius: 8, border: "1px solid #e5e7eb", background: "#fff", fontSize: 14, cursor: "pointer", color: "#555", fontWeight: 500 }}>
+            Prekliči
+          </button>
+          <button onClick={onSave} disabled={saving} style={{ padding: "9px 22px", borderRadius: 8, border: "none", background: saving ? "#99d6d8" : BRAND, color: "#fff", fontSize: 14, fontWeight: 600, cursor: saving ? "default" : "pointer" }}>
+            {saving ? "Shranjujem..." : (saveLabel || "Shrani spremembe")}
+          </button>
+        </div>
       </div>
-    </>
+    </div>
   );
+}
+
+function FormField({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
+  return (
+    <div>
+      <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 6 }}>
+        {label}{required && <span style={{ color: "#ef4444", marginLeft: 3 }}>*</span>}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+function ErrorMsg({ msg }: { msg: string }) {
+  if (!msg) return null;
+  return <div style={{ padding: "10px 14px", background: "#fef2f2", color: "#dc2626", borderRadius: 8, fontSize: 13, border: "1px solid #fecaca" }}>⚠️ {msg}</div>;
 }
 
 // ============================================================
@@ -275,37 +265,28 @@ function UrediNarocnikModal({ post, onClose, onSaved }: { post: NarocnikPost; on
   };
 
   return (
-    <ModalWrapper onClose={onClose}>
-      <ModalHeader title="Uredi naročnika" subtitle={rawTitle} onClose={onClose} />
-      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        <div>
-          <label style={labelStyle}>Naziv naročnika *</label>
-          <input style={inputStyle} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Naziv podjetja ali osebe" />
-        </div>
-        <div>
-          <label style={labelStyle}>Kontaktna oseba</label>
-          <input style={inputStyle} value={kontaktna} onChange={(e) => setKontaktna(e.target.value)} placeholder="Ime in priimek" />
-        </div>
-        <div>
-          <label style={labelStyle}>Naslov</label>
-          <input style={inputStyle} value={naslov} onChange={(e) => setNaslov(e.target.value)} placeholder="Ulica in hišna številka" />
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "120px 1fr", gap: 10 }}>
-          <div>
-            <label style={labelStyle}>Poštna številka</label>
-            <input style={inputStyle} value={postna} onChange={(e) => setPostna(e.target.value)} placeholder="1000" maxLength={4} />
-          </div>
-          <div>
-            <label style={labelStyle}>Pošta</label>
-            <input style={inputStyle} value={posta} onChange={(e) => setPosta(e.target.value)} placeholder="Ljubljana" />
-          </div>
-        </div>
-        <div>
-          <label style={labelStyle}>Davčna številka</label>
-          <input style={inputStyle} value={davcna} onChange={(e) => setDavcna(e.target.value)} placeholder="SI12345678" />
-        </div>
+    <ModalWrapper title="Uredi naročnika" subtitle={rawTitle} onClose={onClose} onSave={handleSave} saving={saving}>
+      <FormField label="Naziv naročnika" required>
+        <input style={inputStyle} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Naziv podjetja ali osebe" />
+      </FormField>
+      <FormField label="Kontaktna oseba">
+        <input style={inputStyle} value={kontaktna} onChange={(e) => setKontaktna(e.target.value)} placeholder="Ime in priimek" />
+      </FormField>
+      <FormField label="Naslov">
+        <input style={inputStyle} value={naslov} onChange={(e) => setNaslov(e.target.value)} placeholder="Ulica in hišna številka" />
+      </FormField>
+      <div style={{ display: "grid", gridTemplateColumns: "120px 1fr", gap: 10 }}>
+        <FormField label="Poštna številka">
+          <input style={inputStyle} value={postna} onChange={(e) => setPostna(e.target.value)} placeholder="5000" maxLength={4} />
+        </FormField>
+        <FormField label="Pošta">
+          <input style={inputStyle} value={posta} onChange={(e) => setPosta(e.target.value)} placeholder="Nova Gorica" />
+        </FormField>
       </div>
-      <ModalFooter error={error} saving={saving} onClose={onClose} onSave={handleSave} />
+      <FormField label="Davčna številka">
+        <input style={inputStyle} value={davcna} onChange={(e) => setDavcna(e.target.value)} placeholder="SI12345678" />
+      </FormField>
+      <ErrorMsg msg={error} />
     </ModalWrapper>
   );
 }
@@ -382,77 +363,74 @@ function UrediStrankaModal({ post, onClose, onSaved }: { post: StrankaPost; onCl
   };
 
   return (
-    <ModalWrapper onClose={onClose}>
-      <ModalHeader title="Uredi stranko" subtitle={rawTitle} onClose={onClose} />
-      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+    <ModalWrapper title="Uredi stranko" subtitle={rawTitle} onClose={onClose} onSave={handleSave} saving={saving}>
+      <FormField label="Naziv stranke" required>
+        <input style={inputStyle} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Naziv stranke" />
+      </FormField>
+
+      {/* Stanje storitve toggle */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: "#f9fafb", borderRadius: 10, border: "1px solid #e5e7eb" }}>
         <div>
-          <label style={labelStyle}>Naziv stranke *</label>
-          <input style={inputStyle} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Naziv stranke" />
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#111" }}>Stanje storitve</div>
+          <div style={{ fontSize: 12, color: "#9ca3af" }}>{stanjeStoritve ? "Aktivna" : "Neaktivna"}</div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: "#f9fafb", borderRadius: 8, border: "1px solid #e5e7eb" }}>
+        <button onClick={() => setStanjeStoritve(!stanjeStoritve)} style={{ width: 44, height: 24, borderRadius: 12, border: "none", cursor: "pointer", background: stanjeStoritve ? BRAND : "#d1d5db", position: "relative", transition: "background 0.2s", flexShrink: 0 }}>
+          <span style={{ position: "absolute", top: 2, left: stanjeStoritve ? 22 : 2, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left 0.2s" }} />
+        </button>
+      </div>
+
+      {/* Storitve — pill-i */}
+      <FormField label="Storitve">
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {STORITVE_CHOICES.map(({ value, label }) => (
+            <div key={value} onClick={() => toggleStoritev(value)} style={{
+              padding: "6px 14px", borderRadius: 20, fontSize: 13, cursor: "pointer", fontWeight: 500,
+              border: `1.5px solid ${storitve.includes(value) ? BRAND : "#e5e7eb"}`,
+              background: storitve.includes(value) ? `${BRAND}12` : "#fff",
+              color: storitve.includes(value) ? BRAND : "#555",
+            }}>{label}</div>
+          ))}
+        </div>
+      </FormField>
+
+      {hasVzdrzevanje && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: "#f9fafb", borderRadius: 10, border: "1px solid #e5e7eb" }}>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "#111" }}>Stanje storitve</div>
-            <div style={{ fontSize: 12, color: "#aaa" }}>{stanjeStoritve ? "Aktivno" : "Neaktivno"}</div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "#111" }}>Stanje vzdrževanja</div>
+            <div style={{ fontSize: 12, color: "#9ca3af" }}>{stanjeVzdrzevanja ? "Aktivno" : "Neaktivno"}</div>
           </div>
-          <button onClick={() => setStanjeStoritve(!stanjeStoritve)} style={{ width: 44, height: 24, borderRadius: 12, border: "none", cursor: "pointer", background: stanjeStoritve ? BRAND : "#d1d5db", position: "relative", transition: "background 0.2s" }}>
-            <span style={{ position: "absolute", top: 2, left: stanjeStoritve ? 22 : 2, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left 0.2s" }} />
+          <button onClick={() => setStanjeVzdrzevanja(!stanjeVzdrzevanja)} style={{ width: 44, height: 24, borderRadius: 12, border: "none", cursor: "pointer", background: stanjeVzdrzevanja ? BRAND : "#d1d5db", position: "relative", transition: "background 0.2s", flexShrink: 0 }}>
+            <span style={{ position: "absolute", top: 2, left: stanjeVzdrzevanja ? 22 : 2, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left 0.2s" }} />
           </button>
         </div>
-        <div>
-          <label style={labelStyle}>Storitve</label>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {STORITVE_CHOICES.map(({ value, label }) => (
-              <label key={value} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13, color: "#333" }}>
-                <input type="checkbox" checked={storitve.includes(value)} onChange={() => toggleStoritev(value)} style={{ width: 16, height: 16, accentColor: BRAND }} />
-                {label}
-              </label>
-            ))}
-          </div>
-        </div>
-        {hasVzdrzevanje && (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: "#f9fafb", borderRadius: 8, border: "1px solid #e5e7eb" }}>
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "#111" }}>Stanje vzdrževanja</div>
-              <div style={{ fontSize: 12, color: "#aaa" }}>{stanjeVzdrzevanja ? "Aktivno" : "Neaktivno"}</div>
-            </div>
-            <button onClick={() => setStanjeVzdrzevanja(!stanjeVzdrzevanja)} style={{ width: 44, height: 24, borderRadius: 12, border: "none", cursor: "pointer", background: stanjeVzdrzevanja ? BRAND : "#d1d5db", position: "relative", transition: "background 0.2s" }}>
-              <span style={{ position: "absolute", top: 2, left: stanjeVzdrzevanja ? 22 : 2, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left 0.2s" }} />
-            </button>
-          </div>
-        )}
+      )}
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         {hasDomena && (
-          <div>
-            <label style={labelStyle}>Domena URL</label>
+          <FormField label="Domena URL">
             <input style={inputStyle} value={domenaUrl} onChange={(e) => setDomenaUrl(e.target.value)} placeholder="https://primer.si" type="url" />
-          </div>
+          </FormField>
         )}
-        <div>
-          <label style={labelStyle}>Potek storitev</label>
+        <FormField label="Potek storitev">
           <input style={inputStyle} value={potekStoritev} onChange={(e) => setPotekStoritev(e.target.value)} type="date" />
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-          <div>
-            <label style={labelStyle}>Strošek (€)</label>
-            <input style={inputStyle} value={strosek} onChange={(e) => setStrosek(e.target.value)} type="number" min="0" placeholder="0" />
-          </div>
-          <div>
-            <label style={labelStyle}>Obračunavanje</label>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {OBRACUN_CHOICES.map(({ value, label }) => (
-                <label key={value} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12, color: "#333" }}>
-                  <input type="checkbox" checked={strosekObracun.includes(value)} onChange={() => toggleObracun(value)} style={{ width: 14, height: 14, accentColor: BRAND }} />
-                  {label}
-                </label>
-              ))}
-            </div>
-          </div>
-        </div>
-        <div>
-          <label style={labelStyle}>Opombe</label>
-          <textarea style={{ ...inputStyle, minHeight: 80, resize: "vertical" as const }} value={opombe} onChange={(e) => setOpombe(e.target.value)} placeholder="Dodatne opombe..." />
-        </div>
+        </FormField>
       </div>
-      <ModalFooter error={error} saving={saving} onClose={onClose} onSave={handleSave} />
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <FormField label="Strošek (€)">
+          <input style={inputStyle} value={strosek} onChange={(e) => setStrosek(e.target.value)} type="number" min="0" placeholder="0" />
+        </FormField>
+        <FormField label="Obračun">
+          <select style={inputStyle} value={strosekObracun[0] || "letno"} onChange={(e) => setStrosekObracun([e.target.value])}>
+            {OBRACUN_CHOICES.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
+          </select>
+        </FormField>
+      </div>
+
+      <FormField label="Opombe">
+        <textarea style={{ ...inputStyle, minHeight: 80, resize: "vertical" as const, fontFamily: "inherit" }} value={opombe} onChange={(e) => setOpombe(e.target.value)} placeholder="Interne opombe..." />
+      </FormField>
+      <ErrorMsg msg={error} />
     </ModalWrapper>
   );
 }
@@ -590,22 +568,20 @@ export function DataTable({ cptSlug, onAdd }: { cptSlug: string; onAdd?: () => v
                       </div>
                     )}
 
-                    {/* Datum + akcije */}
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 8 }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 8 }}>
                       <span style={{ fontSize: 12, color: "#aaa" }}>{formatDate(post.date)}</span>
-                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                        {EDITABLE.includes(cptSlug) ? (
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        {EDITABLE.includes(cptSlug) && (
                           <button
                             onClick={() => setEditTarget(post as AnyPost)}
                             style={{ fontSize: 13, color: BRAND, fontWeight: 600, border: "none", cursor: "pointer", padding: "6px 12px", borderRadius: 8, background: BRAND + "15" } as React.CSSProperties}
                           >
                             Uredi
                           </button>
-                        ) : (
-                          <a href={`/cpt/${cptSlug}/${post.slug}`} style={{ fontSize: 13, color: BRAND, fontWeight: 600, textDecoration: "none", padding: "6px 12px", borderRadius: 8, background: BRAND + "15" }}>
-                            Odpri
-                          </a>
                         )}
+                        <a href={`/cpt/${cptSlug}/${post.slug}`} style={{ fontSize: 13, color: "#6b7280", fontWeight: 500, textDecoration: "none", padding: "6px 10px", borderRadius: 8, background: "#f3f4f6" }}>
+                          Poglej
+                        </a>
                         {DELETABLE.includes(cptSlug) && (
                           <button
                             onClick={() => setDeleteTarget({ id: post.id, naziv: post.title.rendered.replace(/<[^>]*>/g, "") })}
@@ -662,16 +638,15 @@ export function DataTable({ cptSlug, onAdd }: { cptSlug: string; onAdd?: () => v
                           ))}
                           <td style={{ padding: "14px 20px", fontSize: 13, color: "#666", whiteSpace: "nowrap" }}>{formatDate(post.date)}</td>
                           <td style={{ padding: "14px 20px" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                              {EDITABLE.includes(cptSlug) ? (
-                                <button onClick={() => setEditTarget(post as AnyPost)} style={{ fontSize: 13, color: BRAND, fontWeight: 500, background: "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 2, padding: 0 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                              {EDITABLE.includes(cptSlug) && (
+                                <button onClick={() => setEditTarget(post as AnyPost)} style={{ fontSize: 13, color: BRAND, fontWeight: 500, background: "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 2, padding: 0, whiteSpace: "nowrap" }}>
                                   Uredi {icons.arrow}
                                 </button>
-                              ) : (
-                                <a href={`/cpt/${cptSlug}/${post.slug}`} style={{ fontSize: 13, color: BRAND, fontWeight: 500, textDecoration: "none", display: "flex", alignItems: "center", gap: 2 }}>
-                                  Odpri {icons.arrow}
-                                </a>
                               )}
+                              <a href={`/cpt/${cptSlug}/${post.slug}`} style={{ fontSize: 13, color: "#6b7280", fontWeight: 500, textDecoration: "none", display: "flex", alignItems: "center", gap: 2, whiteSpace: "nowrap" }}>
+                                Poglej {icons.arrow}
+                              </a>
                               {DELETABLE.includes(cptSlug) && (
                                 <button onClick={() => setDeleteTarget({ id: post.id, naziv: post.title.rendered.replace(/<[^>]*>/g, "") })} title="Premakni v koš"
                                   style={{ border: "none", background: "transparent", cursor: "pointer", color: "#d1d5db", padding: 4, borderRadius: 6 }}

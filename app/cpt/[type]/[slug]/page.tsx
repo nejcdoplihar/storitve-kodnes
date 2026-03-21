@@ -3,12 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { OpravilaSection, UrediStrankoButton } from "./OpravilaSection";
-import {
-  getCPTPostBySlug,
-  getAllCPTSlugs,
-  getFeaturedImageUrl,
-  formatDate,
-} from "@/lib/wordpress";
+import { getCPTPostBySlug, getAllCPTSlugs, getFeaturedImageUrl, formatDate } from "@/lib/wordpress";
 import { CPT_CONFIGS } from "@/types/wordpress";
 
 export const dynamic = "force-dynamic";
@@ -21,87 +16,76 @@ interface Props {
 }
 
 const STORITVE_LABELS: Record<string, string> = {
-  domena: "Domena",
-  gostovanje: "Gostovanje",
-  dom_gos: "Domena & gostovanje",
-  vzdrzevanje: "Vzdrževanje",
+  domena: "Domena", gostovanje: "Gostovanje",
+  dom_gos: "Domena & gostovanje", vzdrzevanje: "Vzdrževanje",
 };
 
 const OBRACUN_LABELS: Record<string, string> = {
-  letno: "Letno",
-  mesecno: "Mesečno",
-  trimesecno: "Trimesečno",
-  polletno: "Polletno",
-  po_dogovoru: "Po dogovoru",
+  letno: "Letno", mesecno: "Mesečno", trimesecno: "Trimesečno",
+  polletno: "Polletno", po_dogovoru: "Po dogovoru",
 };
 
-type ACFValue =
-  | string
-  | number
-  | boolean
-  | null
-  | undefined
-  | ACFValue[]
-  | Record<string, unknown>;
+type ACFValue = string | number | boolean | null | undefined | ACFValue[] | Record<string, unknown>;
 
 function stripHtml(html?: string) {
-  if (!html) return "";
-  return html.replace(/<[^>]*>/g, "").trim();
+  return html ? html.replace(/<[^>]*>/g, "").trim() : "";
 }
 
 function isEmptyValue(value: unknown) {
   if (value === null || value === undefined) return true;
   if (typeof value === "string" && value.trim() === "") return true;
   if (Array.isArray(value) && value.length === 0) return true;
-  if (typeof value === "object" && value !== null && Object.keys(value).length === 0) return true;
+  if (typeof value === "object" && value !== null && Object.keys(value as object).length === 0) return true;
   return false;
 }
 
-function getStoritevLabel(value: unknown) {
-  if (!value) return "—";
-  if (Array.isArray(value)) return value.map((v) => STORITVE_LABELS[String(v)] || String(v)).join(", ");
-  return STORITVE_LABELS[String(value)] || String(value);
-}
-
 function fmtDate(d: string): string {
-  if (!d || d.length !== 8) return d || "—";
-  return new Date(`${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}`).toLocaleDateString("sl-SI");
+  if (!d) return "—";
+  if (/^\d{8}$/.test(d)) return new Date(`${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}`).toLocaleDateString("sl-SI");
+  const parts = d.split(/[\/\.]/).map(Number);
+  if (parts.length === 3 && parts[2] > 1000) return new Date(parts[2], parts[1]-1, parts[0]).toLocaleDateString("sl-SI");
+  return d;
 }
 
 function renderAcfValue(value: ACFValue): ReactNode {
-  if (isEmptyValue(value)) return <span style={{ color: "#aaa" }}>—</span>;
+  if (isEmptyValue(value)) return <span style={{ color: "#bbb" }}>—</span>;
 
   if (typeof value === "boolean") {
     return (
       <span style={{
-        display: "inline-flex", alignItems: "center", gap: 4,
-        padding: "2px 10px", borderRadius: 20, fontSize: 12, fontWeight: 600,
-        background: value ? "#dcfce7" : "#fee2e2",
-        color: value ? "#15803d" : "#dc2626",
+        display: "inline-flex", alignItems: "center", gap: 5,
+        padding: "3px 12px", borderRadius: 20, fontSize: 12, fontWeight: 600,
+        background: value ? "#dcfce7" : "#f3f4f6",
+        color: value ? "#15803d" : "#6b7280",
       }}>
-        {value ? "Da" : "Ne"}
+        <span style={{ width: 6, height: 6, borderRadius: "50%", background: value ? "#22c55e" : "#9ca3af" }} />
+        {value ? "Aktivno" : "Neaktivno"}
       </span>
     );
   }
-
-  if (typeof value === "number") return <span style={{ fontWeight: 600 }}>{value}</span>;
 
   if (typeof value === "string") {
     if (value.startsWith("http://") || value.startsWith("https://")) {
       return (
         <a href={value} target="_blank" rel="noreferrer"
-          style={{ color: BRAND, textDecoration: "none", wordBreak: "break-all" }}>
-          {value}
+          style={{ color: BRAND, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4, fontSize: 13 }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+            <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+          </svg>
+          {value.replace(/^https?:\/\//, "").replace(/\/$/, "")}
         </a>
       );
     }
-    if (/^\d{8}$/.test(value)) return <span>{fmtDate(value)}</span>;
+    if (/^\d{8}$/.test(value) || /^\d{1,2}[\/\.]\d{1,2}[\/\.]\d{4}$/.test(value)) return <span>{fmtDate(value)}</span>;
     return <span>{value}</span>;
   }
 
+  if (typeof value === "number") return <span style={{ fontWeight: 600 }}>{value}</span>;
+
   if (Array.isArray(value)) {
-    const filtered = value.filter((v) => !isEmptyValue(v));
-    if (filtered.length === 0) return <span style={{ color: "#aaa" }}>—</span>;
+    const filtered = value.filter(v => !isEmptyValue(v));
+    if (!filtered.length) return <span style={{ color: "#bbb" }}>—</span>;
     return (
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
         {filtered.map((item, i) => (
@@ -116,8 +100,7 @@ function renderAcfValue(value: ACFValue): ReactNode {
   if (typeof value === "object" && value !== null) {
     const obj = value as Record<string, unknown>;
     if (typeof obj.rendered === "string") return <span dangerouslySetInnerHTML={{ __html: obj.rendered }} />;
-    const preferredKeys = ["title", "name", "label", "post_title", "value"];
-    for (const key of preferredKeys) {
+    for (const key of ["post_title", "title", "name", "label"]) {
       if (typeof obj[key] === "string") return <span>{obj[key] as string}</span>;
     }
   }
@@ -127,57 +110,61 @@ function renderAcfValue(value: ACFValue): ReactNode {
 
 function Card({ title, children, action }: { title: string; children: ReactNode; action?: ReactNode }) {
   return (
-    <div style={{
-      background: "#fff", borderRadius: 14, border: "1px solid #f0f0f0",
-      boxShadow: "0 1px 4px rgba(0,0,0,0.06)", overflow: "hidden", marginBottom: 20,
-    }}>
-      <div style={{ padding: "16px 24px", borderBottom: "1px solid #f5f5f5", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={{ fontWeight: 700, fontSize: 14, color: "#111" }}>{title}</div>
+    <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #f0f0f0", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", overflow: "hidden", marginBottom: 20 }}>
+      <div style={{ padding: "14px 24px", borderBottom: "1px solid #f5f5f5", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ fontWeight: 700, fontSize: 13, color: "#111", textTransform: "uppercase", letterSpacing: "0.04em" }}>{title}</div>
         {action}
       </div>
-      <div style={{ padding: "8px 24px 16px" }}>{children}</div>
+      <div style={{ padding: "4px 24px 16px" }}>{children}</div>
     </div>
   );
 }
 
-function DetailRow({ label, value }: { label: string; value: ReactNode }) {
+function DetailRow({ label, value, compact }: { label: string; value: ReactNode; compact?: boolean }) {
   return (
-    <div style={{
-      display: "grid", gridTemplateColumns: "160px 1fr", gap: 12,
-      padding: "11px 0", borderBottom: "1px solid #f7f7f7", alignItems: "start",
-    }}>
-      <div style={{ fontSize: 12, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.05em", paddingTop: 2 }}>
+    <div style={{ display: "grid", gridTemplateColumns: compact ? "90px 1fr" : "160px 1fr", gap: 12, padding: "11px 0", borderBottom: "1px solid #f7f7f7", alignItems: "start" }}>
+      <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.06em", paddingTop: 3 }}>
         {label}
       </div>
-      <div style={{ fontSize: 14, color: "#111", wordBreak: "break-word" }}>
-        {value ?? <span style={{ color: "#aaa" }}>—</span>}
+      <div style={{ fontSize: 13, color: "#111", wordBreak: "break-word" }}>
+        {value ?? <span style={{ color: "#bbb" }}>—</span>}
       </div>
     </div>
   );
 }
 
-
-// ---- CPT specific cards ----
 function NarocnikCard({ acf }: { acf?: Record<string, unknown> }) {
   if (!acf) return null;
+  const get = (k: string) => acf[k] as ACFValue;
   return (
     <Card title="Podatki naročnika">
-      <DetailRow label="Kontaktna oseba" value={renderAcfValue(acf.kontaktna_oseba as ACFValue)} />
-      <DetailRow label="Email" value={renderAcfValue(acf.email as ACFValue)} />
-      <DetailRow label="Telefon" value={renderAcfValue(acf.telefon as ACFValue)} />
-      <DetailRow label="Podjetje" value={renderAcfValue(acf.podjetje as ACFValue)} />
-      <DetailRow label="Naslov" value={renderAcfValue(acf.naslov as ACFValue)} />
+      <DetailRow label="Kontaktna oseba" value={renderAcfValue(get("narocnik_kontaktna_oseba") ?? get("kontaktna_oseba"))} />
+      <DetailRow label="Email" value={renderAcfValue(get("narocnik_email") ?? get("email"))} />
+      <DetailRow label="Telefon" value={renderAcfValue(get("narocnik_telefon") ?? get("telefon"))} />
+      <DetailRow label="Podjetje" value={renderAcfValue(get("narocnik_podjetje") ?? get("podjetje"))} />
+      <DetailRow label="Naslov" value={renderAcfValue(get("narocnik_naslov") ?? get("naslov"))} />
     </Card>
   );
 }
 
 function StrankaCard({ acf }: { acf?: Record<string, unknown> }) {
   if (!acf) return null;
+  const storitve = acf.storitve;
+  const storitveNode = (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+      {(Array.isArray(storitve) ? storitve : storitve ? [storitve] : []).map((s: unknown, i: number) => (
+        <span key={i} style={{ padding: "3px 10px", borderRadius: 20, fontSize: 12, background: `${BRAND}15`, color: BRAND, fontWeight: 500 }}>
+          {STORITVE_LABELS[String(s)] || String(s)}
+        </span>
+      ))}
+      {!storitve && <span style={{ color: "#bbb" }}>—</span>}
+    </div>
+  );
   return (
     <Card title="Podatki stranke">
-      <DetailRow label="Storitev" value={getStoritevLabel(acf.storitve)} />
+      <DetailRow label="Storitev" value={storitveNode} />
       <DetailRow label="Domena URL" value={renderAcfValue(acf.domena_url as ACFValue)} />
-      <DetailRow label="Potek storitev" value={renderAcfValue(acf.potek_storitev as ACFValue)} />
+      <DetailRow label="Potek storitev" value={acf.potek_storitev ? fmtDate(String(acf.potek_storitev)) : "—"} />
       <DetailRow label="Stanje storitve" value={renderAcfValue(acf.stanje_storitve as ACFValue)} />
       <DetailRow label="Strošek" value={acf.strosek ? `${acf.strosek} €` : "—"} />
       <DetailRow label="Obračun" value={renderAcfValue(acf.strosek_obracun as ACFValue)} />
@@ -190,15 +177,13 @@ function PonudbaCard({ acf }: { acf?: Record<string, unknown> }) {
   if (!acf) return null;
   return (
     <Card title="Podatki ponudbe">
-      <DetailRow label="Številka ponudbe" value={renderAcfValue(acf.stevilka_ponudbe as ACFValue)} />
-      <DetailRow label="Znesek" value={renderAcfValue(acf.znesek as ACFValue)} />
-      <DetailRow label="Status ponudbe" value={renderAcfValue(acf.status_ponudbe as ACFValue)} />
-      <DetailRow label="Veljavnost" value={renderAcfValue(acf.veljavnost as ACFValue)} />
+      <DetailRow label="Znesek" value={acf.znesek ? `${acf.znesek} €` : "—"} />
+      <DetailRow label="Status" value={renderAcfValue(acf.status_ponudbe as ACFValue)} />
+      <DetailRow label="Veljavnost" value={acf.veljavnost ? fmtDate(String(acf.veljavnost)) : "—"} />
     </Card>
   );
 }
 
-// ---- Static generation ----
 export async function generateStaticParams() {
   const paths: { type: string; slug: string }[] = [];
   for (const cpt of CPT_CONFIGS) {
@@ -217,7 +202,6 @@ export async function generateMetadata({ params }: Props) {
   return { title: stripHtml(post.title?.rendered) || "Podrobnosti" };
 }
 
-// ---- Main page ----
 export default async function CPTSinglePage({ params }: Props) {
   const { type, slug } = await params;
 
@@ -229,6 +213,11 @@ export default async function CPTSinglePage({ params }: Props) {
 
   const imageUrl = getFeaturedImageUrl(post, "full");
   const hasContent = Boolean(stripHtml(post.content?.rendered));
+  const title = stripHtml(post.title?.rendered);
+
+  // URL za nazaj — na admin view za ta CPT
+  const backUrl = `/admin?view=${cpt.slug}`;
+  const backLabel = cpt.label;
 
   return (
     <div style={{ minHeight: "100vh", background: "#f8f9fb", fontFamily: "'DM Sans', system-ui, sans-serif" }}>
@@ -238,70 +227,71 @@ export default async function CPTSinglePage({ params }: Props) {
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <div style={{ width: 28, height: 28, borderRadius: 7, background: BRAND, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5">
-              <polyline points="13 2 13 9 20 9"/><polygon points="22 12 12 2 2 12"/><polyline points="2 12 2 22 22 22 22 12"/>
+              <polyline points="13 2 13 9 20 9"/><polygon points="22 12 12 2 2 12"/>
+              <polyline points="2 12 2 22 22 22 22 12"/>
             </svg>
           </div>
           <span style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>Kodnes admin</span>
         </div>
-        <Link href="/admin" style={{ fontSize: 13, color: "#94a3b8", textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}>
+        <Link href="/admin" style={{ fontSize: 13, color: "#94a3b8", textDecoration: "none" }}>
           ← Dashboard
         </Link>
       </div>
 
       {/* Breadcrumb */}
-      <div style={{ padding: "14px 32px", borderBottom: "1px solid #eee", background: "#fff", display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#888" }}>
-        <Link href="/admin" style={{ color: BRAND, textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}>
-         Pregled
-        </Link>
-        <span>›</span>
-        <Link href={`/cpt/${cpt.slug}`} style={{ color: BRAND, textDecoration: "none" }}>{cpt.label}</Link>
-        <span>›</span>
-        <span style={{ color: "#111", fontWeight: 500 }} dangerouslySetInnerHTML={{ __html: post.title.rendered }} />
+      <div style={{ padding: "12px 32px", borderBottom: "1px solid #eee", background: "#fff", display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
+        <Link href="/admin" style={{ color: "#9ca3af", textDecoration: "none" }}>Pregled</Link>
+        <span style={{ color: "#d1d5db" }}>›</span>
+        <Link href={backUrl} style={{ color: BRAND, textDecoration: "none", fontWeight: 500 }}>{backLabel}</Link>
+        <span style={{ color: "#d1d5db" }}>›</span>
+        <span style={{ color: "#374151", fontWeight: 600 }}>{title}</span>
       </div>
 
       {/* Content */}
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "32px 32px" }}>
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "28px 32px" }}>
 
-        {/* Title area */}
-        <div style={{ marginBottom: 28 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-            <span style={{ padding: "3px 12px", borderRadius: 20, fontSize: 12, fontWeight: 600, background: `${BRAND}15`, color: BRAND }}>
-              {cpt.label}
-            </span>
-            <span style={{
-              padding: "3px 12px", borderRadius: 20, fontSize: 12, fontWeight: 600,
-              background: post.status === "publish" ? "#dcfce7" : "#fef9c3",
-              color: post.status === "publish" ? "#15803d" : "#854d0e",
-            }}>
-              {post.status === "publish" ? "Objavljeno" : "Osnutek"}
-            </span>
-          </div>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: "#111", margin: 0, lineHeight: 1.2 }}
-            dangerouslySetInnerHTML={{ __html: post.title.rendered }} />
-          <div style={{ fontSize: 13, color: "#aaa", marginTop: 8 }}>Datum objave: {formatDate(post.date)}</div>
-        </div>
-
-        {/* Uredi gumb za stranke */}
-        {type === "stranka" && (
-          <div style={{ marginBottom: 16 }}>
-            <UrediStrankoButton strankaId={post.id} />
-          </div>
-        )}
-
-        {/* Logo — 1:1 square, small */}
-        {imageUrl && (
-          <div style={{ marginBottom: 28 }}>
-            <div style={{ width: 80, height: 80, borderRadius: 12, overflow: "hidden", border: "1px solid #f0f0f0", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }}>
-              <img src={imageUrl} alt={stripHtml(post.title.rendered)}
-                style={{ width: "100%", height: "100%", objectFit: "contain", padding: 6 }} />
+        {/* Title + akcije */}
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 24, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            {/* Logo inline z naslovom */}
+            {imageUrl && (
+              <div style={{ width: 85, height: 85, borderRadius: 10, overflow: "hidden", border: "1px solid #f0f0f0", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
+                <img src={imageUrl} alt={title} style={{ width: "100%", height: "100%", objectFit: "contain", padding: 4 }} />
+              </div>
+            )}
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                <span style={{ padding: "2px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600, background: `${BRAND}15`, color: BRAND }}>{cpt.label}</span>
+                <span style={{
+                  padding: "2px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600,
+                  background: post.status === "publish" ? "#dcfce7" : "#fef9c3",
+                  color: post.status === "publish" ? "#15803d" : "#854d0e",
+                }}>
+                  {post.status === "publish" ? "Objavljeno" : "Osnutek"}
+                </span>
+              </div>
+              <h1 style={{ fontSize: 24, fontWeight: 800, color: "#111", margin: 0, lineHeight: 1.2 }}>{title}</h1>
+              <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 4 }}>{formatDate(post.date)}</div>
             </div>
           </div>
-        )}
+
+          {/* Akcijski gumbi zgoraj desno */}
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexShrink: 0 }}>
+            {type === "stranka" && <UrediStrankoButton strankaId={post.id} />}
+            <Link href={backUrl} style={{
+              display: "flex", alignItems: "center", gap: 6,
+              padding: "8px 16px", borderRadius: 8, border: "1px solid #e5e7eb",
+              background: "#fff", color: "#374151", textDecoration: "none", fontSize: 13, fontWeight: 500,
+            }}>
+              ← Nazaj na {backLabel}
+            </Link>
+          </div>
+        </div>
 
         {/* 2 col layout */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: 24, alignItems: "start" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 280px", gap: 24, alignItems: "start" }}>
 
-          {/* Left */}
+          {/* Levo — vsebina */}
           <div>
             {hasContent && (
               <Card title="Vsebina">
@@ -312,18 +302,30 @@ export default async function CPTSinglePage({ params }: Props) {
             {type === "narocnik" && <NarocnikCard acf={post.acf} />}
             {type === "stranka" && <StrankaCard acf={post.acf} />}
             {type === "ponudba" && <PonudbaCard acf={post.acf} />}
-
-            {/* Opravila — samo za stranke */}
             {type === "stranka" && <OpravilaSection strankaId={post.id} />}
           </div>
 
-          {/* Right sidebar */}
+          {/* Desno — sidebar */}
           <div>
             <Card title="Osnovni podatki">
-              <DetailRow label="Tip vsebine" value={cpt.label} />
-              <DetailRow label="Slug" value={<span style={{ fontFamily: "monospace", fontSize: 12, background: "#f5f5f5", padding: "2px 6px", borderRadius: 4 }}>{post.slug}</span>} />
-              <DetailRow label="Datum objave" value={formatDate(post.date)} />
-              <DetailRow label="Status" value={
+              <DetailRow compact label="Tip" value={
+                <span style={{ padding: "2px 10px", borderRadius: 20, fontSize: 12, fontWeight: 500, background: `${BRAND}15`, color: BRAND }}>{cpt.label}</span>
+              } />
+              <DetailRow compact label="Slug" value={
+                <span style={{ fontFamily: "monospace", fontSize: 12, background: "#f5f5f5", padding: "2px 6px", borderRadius: 4, color: "#374151" }}>{post.slug}</span>
+              } />
+              <DetailRow compact label="Objavljeno" value={formatDate(post.date)} />
+              {post.author_name && (
+                <DetailRow compact label="Avtor" value={
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ width: 22, height: 22, borderRadius: "50%", background: BRAND, color: "#fff", fontSize: 10, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+                      {String(post.author_name).charAt(0).toUpperCase()}
+                    </span>
+                    {post.author_name}
+                  </span>
+                } />
+              )}
+              <DetailRow compact label="Status" value={
                 <span style={{
                   padding: "2px 10px", borderRadius: 20, fontSize: 12, fontWeight: 600,
                   background: post.status === "publish" ? "#dcfce7" : "#fef9c3",
@@ -335,14 +337,20 @@ export default async function CPTSinglePage({ params }: Props) {
             </Card>
 
             <Card title="Navigacija">
-              <div style={{ display: "flex", flexDirection: "column", gap: 10, padding: "8px 0" }}>
-                <Link href={`/cpt/${cpt.slug}`}
-                  style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "10px 16px", borderRadius: 8, background: BRAND, color: "#fff", textDecoration: "none", fontSize: 14, fontWeight: 600 }}>
-                   Nazaj na {cpt.label}
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "8px 0" }}>
+                <Link href={backUrl} style={{
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                  padding: "10px 16px", borderRadius: 8, background: BRAND,
+                  color: "#fff", textDecoration: "none", fontSize: 13, fontWeight: 600,
+                }}>
+                  ← {backLabel}
                 </Link>
-                <Link href="/admin"
-                  style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "10px 16px", borderRadius: 8, border: "1px solid #e5e7eb", background: "#fff", color: "#374151", textDecoration: "none", fontSize: 14, fontWeight: 500 }}>
-                   Dashboard
+                <Link href="/admin" style={{
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  padding: "10px 16px", borderRadius: 8, border: "1px solid #e5e7eb",
+                  background: "#fff", color: "#374151", textDecoration: "none", fontSize: 13, fontWeight: 500,
+                }}>
+                  Začetni prikaz
                 </Link>
               </div>
             </Card>

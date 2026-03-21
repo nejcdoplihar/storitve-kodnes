@@ -2,6 +2,7 @@
 // app/admin/page.tsx — mobilno prilagojen layout s hamburger menijem
 
 import { useState, useEffect } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { BRAND } from "@/lib/constants";
 import { icons } from "@/components/admin/Icons";
 import { GlobalSearchBar } from "@/components/admin/GlobalSearchBar";
@@ -164,7 +165,13 @@ function SidebarContent({
 // MAIN DASHBOARD
 // ============================================================
 export default function Dashboard() {
-  const [activeView, setActiveView] = useState<ActiveView>("dashboard");
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  const viewFromUrl = searchParams.get("view") as ActiveView | null;
+  const [activeView, setActiveView] = useState<ActiveView>(
+    viewFromUrl && titles[viewFromUrl] ? viewFromUrl : "dashboard"
+  );
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -184,18 +191,25 @@ export default function Dashboard() {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
+  // Sync activeView ko se URL query param spremeni (npr. po kliku Nazaj)
+  useEffect(() => {
+    const view = searchParams.get("view") as ActiveView | null;
+    if (view && titles[view] && view !== activeView) {
+      setActiveView(view);
+    } else if (!view && activeView !== "dashboard") {
+      setActiveView("dashboard");
+    }
+  }, [searchParams]);
+
   // Zapri mobilni meni ob spremembi view-a
   const handleNavigate = (view: ActiveView) => {
     setActiveView(view);
     setMobileMenuOpen(false);
+    // Posodobi URL brez page reload
+    const params = new URLSearchParams();
+    if (view !== "dashboard") params.set("view", view);
+    router.replace(params.toString() ? `?${params.toString()}` : "/admin", { scroll: false });
   };
-
-  // Sync view from URL query param
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const view = params.get("view") as ActiveView | null;
-    if (view && titles[view]) setActiveView(view);
-  }, []);
 
   const handleSaved = () => setDataTableKey((k) => k + 1);
 
