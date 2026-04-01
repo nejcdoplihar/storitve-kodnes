@@ -4,7 +4,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { WP_URL } from "@/lib/constants";
-import type { Post, Stranka } from "@/types/admin";
+import type { Post, Stranka, Narocnik } from "@/types/admin";
 
 // ============================================================
 // useWPData — paginiran seznam postov
@@ -147,4 +147,52 @@ export function useStranke() {
   }, []);
 
   return { stranke, loading, error, refetch: fetchData };
+}
+
+// ============================================================
+// useNarocniki — pridobi vse naročnike z vsemi podatki
+// ============================================================
+export function useNarocniki() {
+  const [narocniki, setNarocniki] = useState<Narocnik[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchData = async () => {
+    if (!WP_URL) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const baseUrl = `${WP_URL.replace(/\/$/, "")}/wp-json/wp/v2/narocnik`;
+      let currentPage = 1;
+      let totalPages = 1;
+      let allNarocniki: Narocnik[] = [];
+      do {
+        const res = await fetch(
+          `${baseUrl}?per_page=100&page=${currentPage}&_embed=true&status=publish`,
+          { cache: "no-store" }
+        );
+        if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+        const data = await res.json();
+        totalPages = Number(res.headers.get("X-WP-TotalPages") || 1);
+        if (Array.isArray(data)) {
+          allNarocniki = [...allNarocniki, ...data];
+        }
+        currentPage++;
+      } while (currentPage <= totalPages);
+      setNarocniki(allNarocniki);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Napaka");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  return { narocniki, loading, error, refetch: fetchData };
 }

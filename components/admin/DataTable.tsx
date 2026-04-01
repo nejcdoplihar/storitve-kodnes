@@ -231,6 +231,8 @@ type NarocnikPost = {
   acf?: {
     narocnik_naziv?: string;
     narocnik_kontaktna_oseba?: string;
+    narocnik_email?: string;
+    narocnik_telefonska_stevilka?: string;
     narocnik_naslov?: string;
     narocnik_postna_stevilka?: string;
     narocnik_posta?: string;
@@ -242,6 +244,8 @@ function UrediNarocnikModal({ post, onClose, onSaved }: { post: NarocnikPost; on
   const rawTitle = post.title.rendered.replace(/<[^>]*>/g, "");
   const [title, setTitle] = useState(rawTitle);
   const [kontaktna, setKontaktna] = useState(post.acf?.narocnik_kontaktna_oseba || "");
+  const [email, setEmail] = useState(post.acf?.narocnik_email || "");
+  const [telefon, setTelefon] = useState(post.acf?.narocnik_telefonska_stevilka || "");
   const [naslov, setNaslov] = useState(post.acf?.narocnik_naslov || "");
   const [postna, setPostna] = useState(post.acf?.narocnik_postna_stevilka || "");
   const [posta, setPosta] = useState(post.acf?.narocnik_posta || "");
@@ -256,7 +260,17 @@ function UrediNarocnikModal({ post, onClose, onSaved }: { post: NarocnikPost; on
       const res = await fetch("/api/narocnik/update", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: post.id, title: title.trim(), narocnik_kontaktna_oseba: kontaktna.trim(), narocnik_naslov: naslov.trim(), narocnik_postna_stevilka: postna.trim(), narocnik_posta: posta.trim(), narocnik_davcna_stevilka: davcna.trim() }),
+        body: JSON.stringify({
+          id: post.id,
+          title: title.trim(),
+          narocnik_kontaktna_oseba: kontaktna.trim(),
+          narocnik_email: email.trim(),
+          narocnik_telefonska_stevilka: telefon.trim(),
+          narocnik_naslov: naslov.trim(),
+          narocnik_postna_stevilka: postna.trim(),
+          narocnik_posta: posta.trim(),
+          narocnik_davcna_stevilka: davcna.trim(),
+        }),
       });
       if (!res.ok) { const d = await res.json(); setError(d.error || "Napaka pri shranjevanju"); return; }
       onSaved(); onClose();
@@ -272,6 +286,14 @@ function UrediNarocnikModal({ post, onClose, onSaved }: { post: NarocnikPost; on
       <FormField label="Kontaktna oseba">
         <input style={inputStyle} value={kontaktna} onChange={(e) => setKontaktna(e.target.value)} placeholder="Ime in priimek" />
       </FormField>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <FormField label="Email">
+          <input type="email" style={inputStyle} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="janez@podjetje.si" />
+        </FormField>
+        <FormField label="Telefon">
+          <input style={inputStyle} value={telefon} onChange={(e) => setTelefon(e.target.value)} placeholder="+386 41 123 456" />
+        </FormField>
+      </div>
       <FormField label="Naslov">
         <input style={inputStyle} value={naslov} onChange={(e) => setNaslov(e.target.value)} placeholder="Ulica in hišna številka" />
       </FormField>

@@ -90,3 +90,9 @@ export function getAnnualCost(cost: number, billing: string | string[]): number 
       return cost;
   }
 }
+
+export function getTitleById(list: any[], id?: number) {
+  if (!id) return "—";
+  const item = list.find((p) => p.id === id);
+  return item ? item.title?.rendered?.replace(/<[^>]*>/g, "").trim() : "—";
+}

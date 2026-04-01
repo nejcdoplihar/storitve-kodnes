@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+//import { DodajOpraviloModal, OpravilaTabela } from "@/components/admin/views/OpravilaView";
 
 const BRAND = "#00a4a7";
 
@@ -27,7 +28,8 @@ type Opravilo = {
     cas_ure: number;
     custom_postavka: boolean;
     urna_postavka: number;
-    stranka_rel: Array<{ ID: number; post_title: string; post_name: string }>;
+    narocnik_rel?: number[];
+    stranka_rel?: number[];
     placano: boolean;
   };
 };
@@ -64,6 +66,8 @@ const CAS_OPTIONS = Array.from({ length: 32 }, (_, i) => (i + 1) * 0.5);
 // ============================================================
 // HELPERS
 // ============================================================
+
+
 function fmtDate(d: string): string {
   if (!d || d.length !== 8) return d || "—";
   return new Date(`${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`).toLocaleDateString("sl-SI");
@@ -96,6 +100,12 @@ function getStoritevLabel(value: unknown) {
   if (!value) return "—";
   if (Array.isArray(value)) return value.map((v) => labels[String(v)] || String(v)).join(", ");
   return labels[String(value)] || String(value);
+}
+
+function getTitleById(list: Post[], id?: number) {
+  if (!id) return "—";
+  const item = list.find((p) => p.id === id);
+  return item ? stripHtml(item.title.rendered) : "—";
 }
 
 // ============================================================
@@ -153,6 +163,29 @@ const secondaryButtonStyle: React.CSSProperties = {
 // ============================================================
 // HOOKS
 // ============================================================
+function useAllPosts(cpt: "stranka" | "narocnik") {
+  const [posts, setPosts] = useState<Post[]>([]);
+
+  useEffect(() => {
+    async function load() {
+      if (!WP_URL) return;
+      try {
+        const res = await fetch(
+          `${WP_URL.replace(/\/$/, "")}/wp-json/wp/v2/${cpt}?per_page=100&_embed=1`,
+          { cache: "no-store" }
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        setPosts(Array.isArray(data) ? data : []);
+      } catch {}
+    }
+
+    load();
+  }, [cpt]);
+
+  return posts;
+}
+
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
@@ -177,7 +210,7 @@ function useCurrentUser() {
   return username;
 }
 
-function useOpravila(strankaId?: number) {
+function useOpravila(entityId?: number, entityType?: "narocnik" | "stranka") {
   const [opravila, setOpravila] = useState<Opravilo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -201,11 +234,12 @@ function useOpravila(strankaId?: number) {
 
       let data: Opravilo[] = await res.json();
 
-      if (strankaId) {
+      if (entityId && entityType) {
+        const relField = entityType === "narocnik" ? "narocnik_rel" : "stranka_rel";
         data = data.filter((o) => {
-          const rel = o.acf?.stranka_rel;
+          const rel = o.acf?.[relField];
           if (!Array.isArray(rel)) return false;
-          return rel.some((r) => r.ID === strankaId);
+          return rel.some((r) => r.ID === entityId);
         });
       }
 
@@ -220,7 +254,7 @@ function useOpravila(strankaId?: number) {
 
   useEffect(() => {
     fetchData();
-  }, [strankaId]);
+  }, [entityId, entityType]);
 
   return { opravila, loading, error, refetch: fetchData };
 }
@@ -884,7 +918,7 @@ function StrankaSearchSelect({
           if (!open) openDropdown();
           if (value) onChange("");
         }}
-        placeholder="Iskanje stranke..."
+        placeholder="Iskanje..."
         style={inputStyle}
       />
 
@@ -955,13 +989,15 @@ function DodajOpraviloModal({
   onClose,
   onSaved,
   stranke,
-  defaultStrankaId,
+  defaultEntityId,
+  entityType,
   username,
 }: {
   onClose: () => void;
   onSaved: () => void;
   stranke: Post[];
-  defaultStrankaId?: number;
+  defaultEntityId?: number;
+  entityType: "stranka" | "narocnik";
   username: string;
 }) {
   const [form, setForm] = useState({
@@ -971,14 +1007,19 @@ function DodajOpraviloModal({
     cas_ure: "0.5",
     custom_postavka: false,
     urna_postavka: "35",
-    stranka_id: defaultStrankaId ? String(defaultStrankaId) : "",
+    stranka_id: entityType === "stranka" && defaultEntityId ? String(defaultEntityId) : "",
+    narocnik_id: entityType === "narocnik" && defaultEntityId ? String(defaultEntityId) : "",
     placano: false,
   });
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const set = (k: string, v: string | boolean) => setForm((f) => ({ ...f, [k]: v }));
+  const set = (k: string, v: string | boolean) =>
+    setForm((f) => ({ ...f, [k]: v }));
+
+  const idField = entityType === "narocnik" ? "narocnik_id" : "stranka_id";
+  const selectedId = (form[idField as keyof typeof form] as string) || "";
 
   const handleSave = async () => {
     if (!form.naslov_opravila.trim()) {
@@ -986,8 +1027,8 @@ function DodajOpraviloModal({
       return;
     }
 
-    if (!form.stranka_id) {
-      setError("Izberi stranko");
+    if (!selectedId) {
+      setError(entityType === "narocnik" ? "Izberi naročnika." : "Izberi stranko.");
       return;
     }
 
@@ -998,12 +1039,28 @@ function DodajOpraviloModal({
       const res = await fetch("/api/opravilo/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, uporabnik: username, stranka_id: parseInt(form.stranka_id) }),
+        body: JSON.stringify({
+          ...form,
+          uporabnik: username,
+          stranka_id: form.stranka_id ? parseInt(form.stranka_id) : null,
+          narocnik_id: form.narocnik_id ? parseInt(form.narocnik_id) : null,
+          clear_stranka_rel: !form.stranka_id,
+          clear_narocnik_rel: !form.narocnik_id,
+        }),
       });
 
-      const data = await res.json();
+      const raw = await res.text();
 
-      if (!res.ok) throw new Error(data.error || "Napaka");
+      let data: any = {};
+      try {
+        data = raw ? JSON.parse(raw) : {};
+      } catch {
+        data = { error: raw || "Neveljaven odgovor strežnika." };
+      }
+
+      if (!res.ok) {
+        throw new Error(data.error || "Napaka");
+      }
 
       onSaved();
       onClose();
@@ -1027,8 +1084,8 @@ function DodajOpraviloModal({
             disabled={saving}
             style={{
               ...primaryButtonStyle,
-              background: saving ? "#99d6d8" : BRAND,
-              cursor: saving ? "default" : "pointer",
+              background: saving || !selectedId ? "#99d6d8" : BRAND,
+              cursor: saving || !selectedId ? "default" : "pointer",
             }}
           >
             {saving ? "Shranjujem..." : "Shrani opravilo"}
@@ -1037,8 +1094,14 @@ function DodajOpraviloModal({
       }
     >
       <div>
-        <label style={labelStyle}>Stranka *</label>
-        <StrankaSearchSelect stranke={stranke} value={form.stranka_id} onChange={(val) => set("stranka_id", val)} />
+        <label style={labelStyle}>
+          {entityType === "narocnik" ? "Naročnik *" : "Stranka *"}
+        </label>
+        <StrankaSearchSelect
+          stranke={stranke}
+          value={selectedId}
+          onChange={(val) => set(idField, val)}
+        />
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -1054,7 +1117,11 @@ function DodajOpraviloModal({
 
         <div>
           <label style={labelStyle}>Uporabnik</label>
-          <input value={username} disabled style={{ ...inputStyle, background: "#f8f9fb", color: "#888" }} />
+          <input
+            value={username}
+            disabled
+            style={{ ...inputStyle, background: "#f8f9fb", color: "#888" }}
+          />
         </div>
       </div>
 
@@ -1147,8 +1214,7 @@ function DodajOpraviloModal({
           {(parseFloat(form.cas_ure) * (form.custom_postavka ? parseFloat(form.urna_postavka) || 0 : 35)).toLocaleString(
             "sl-SI",
             { minimumFractionDigits: 2 }
-          )}{" "}
-          €
+          )} €
         </span>
       </div>
 
@@ -1191,31 +1257,53 @@ function DodajOpraviloModal({
 // UREDI OPRAVILO MODAL
 // ============================================================
 function UrediOpraviloModal({
+  
   opravilo,
   onClose,
   onSaved,
   stranke,
+  narocniki,
   username,
 }: {
   opravilo: Opravilo;
   onClose: () => void;
   onSaved: () => void;
   stranke: Post[];
+  narocniki: Post[];
   username: string;
 }) {
+  
+  console.log("OPRAVILO:", opravilo);
+  console.log("narocnik_rel:", opravilo.acf?.narocnik_rel);
+  console.log("stranka_rel:", opravilo.acf?.stranka_rel);
+
+  const initialStrankaId =
+    Array.isArray(opravilo.acf?.stranka_rel) && opravilo.acf.stranka_rel[0]
+      ? String(opravilo.acf.stranka_rel[0])
+      : "";
+
+  const initialNarocnikId =
+    Array.isArray(opravilo.acf?.narocnik_rel) && opravilo.acf.narocnik_rel[0]
+      ? String(opravilo.acf.narocnik_rel[0])
+      : "";
+
   const [form, setForm] = useState({
     datum_opravila: opravilo.acf?.datum_opravila || todayYMD(),
-    naslov_opravila: opravilo.acf?.naslov_opravila || "",
+    naslov_opravila: opravilo.acf?.naslov_opravila || stripHtml(opravilo.title?.rendered) || "",
     opis_opravila: opravilo.acf?.opis_opravila || "",
     cas_ure: String(opravilo.acf?.cas_ure || "0.5"),
-    custom_postavka: opravilo.acf?.custom_postavka || false,
-    urna_postavka: String(opravilo.acf?.urna_postavka || "35"),
-    stranka_id: opravilo.acf?.stranka_rel?.[0]?.ID ? String(opravilo.acf.stranka_rel[0].ID) : "",
-    placano: opravilo.acf?.placano || false,
+    custom_postavka: Boolean(opravilo.acf?.custom_postavka),
+    urna_postavka: String(opravilo.acf?.urna_postavka || 35),
+    stranka_id: initialStrankaId,
+    narocnik_id: initialNarocnikId,
+    placano: Boolean(opravilo.acf?.placano),
   });
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  const debugNarocnikRel = JSON.stringify(opravilo.acf?.narocnik_rel ?? null);
+  const debugStrankaRel = JSON.stringify(opravilo.acf?.stranka_rel ?? null);
 
   const set = (k: string, v: string | boolean) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -1224,8 +1312,9 @@ function UrediOpraviloModal({
       setError("Naslov je obvezen");
       return;
     }
-    if (!form.stranka_id) {
-      setError("Izberi stranko");
+
+    if (!form.narocnik_id && !form.stranka_id) {
+      setError("Izberi naročnika ali stranko");
       return;
     }
 
@@ -1233,18 +1322,29 @@ function UrediOpraviloModal({
     setError("");
 
     try {
-      const res = await fetch("/api/opravilo/update-full", {
+      const res = await fetch("/api/opravilo/edit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: opravilo.id,
-          ...form,
-          uporabnik: form.placano ? opravilo.acf?.uporabnik || username : username,
-          stranka_id: parseInt(form.stranka_id),
-        }),
+          body: JSON.stringify({
+            id: opravilo.id,
+            ...form,
+            uporabnik: username,
+            stranka_id: form.stranka_id ? parseInt(form.stranka_id) : null,
+            narocnik_id: form.narocnik_id ? parseInt(form.narocnik_id) : null,
+            clear_stranka_rel: !form.stranka_id,
+            clear_narocnik_rel: !form.narocnik_id,
+          }),
       });
 
-      const data = await res.json();
+      const raw = await res.text();
+
+      let data: any = {};
+      try {
+        data = raw ? JSON.parse(raw) : {};
+      } catch {
+        data = { error: raw || "Neveljaven odgovor strežnika." };
+      }
+
       if (!res.ok) throw new Error(data.error || "Napaka");
 
       onSaved();
@@ -1278,10 +1378,73 @@ function UrediOpraviloModal({
         </>
       }
     >
-      <div>
-        <label style={labelStyle}>Stranka *</label>
-        <StrankaSearchSelect stranke={stranke} value={form.stranka_id} onChange={(val) => set("stranka_id", val)} />
+    <div>
+      <label style={labelStyle}>Naročnik</label>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", width: "100%" }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+          <StrankaSearchSelect
+            stranke={narocniki}
+            value={form.narocnik_id}
+            onChange={(val) => set("narocnik_id", val)}
+          />
+        </div>
+
+        {true && (
+          <button
+            type="button"
+            onClick={() => set("narocnik_id", "")}
+            style={{
+              padding: "10px 12px",
+              borderRadius: 8,
+              border: "1px solid #e5e7eb",
+              background: "#fff",
+              color: "#dc2626",
+              cursor: "pointer",
+              fontSize: 13,
+              fontWeight: 600,
+              whiteSpace: "nowrap",
+              flexShrink: 0,
+            }}
+          >
+            Odstrani
+          </button>
+        )}
       </div>
+    </div>
+
+    <div>
+      <label style={labelStyle}>Stranka</label>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", width: "100%" }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <StrankaSearchSelect
+            stranke={stranke}
+            value={form.stranka_id}
+            onChange={(val) => set("stranka_id", val)}
+          />
+        </div>
+
+        {form.stranka_id && (
+          <button
+            type="button"
+            onClick={() => set("stranka_id", "")}
+            style={{
+              padding: "10px 12px",
+              borderRadius: 8,
+              border: "1px solid #e5e7eb",
+              background: "#fff",
+              color: "#dc2626",
+              cursor: "pointer",
+              fontSize: 13,
+              fontWeight: 600,
+              whiteSpace: "nowrap",
+              flexShrink: 0,
+            }}
+          >
+            Odstrani
+          </button>
+        )}
+      </div>
+    </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         <div>
@@ -1389,8 +1552,7 @@ function UrediOpraviloModal({
           {(parseFloat(form.cas_ure) * (form.custom_postavka ? parseFloat(form.urna_postavka) || 0 : 35)).toLocaleString(
             "sl-SI",
             { minimumFractionDigits: 2 }
-          )}{" "}
-          €
+          )} €
         </span>
       </div>
 
@@ -1420,6 +1582,22 @@ function UrediOpraviloModal({
         </label>
       </div>
 
+      <div
+        style={{
+          fontSize: 12,
+          color: "#666",
+          background: "#f8fafc",
+          border: "1px solid #e5e7eb",
+          borderRadius: 8,
+          padding: "10px 12px",
+        }}
+      >
+        <div><strong>debug narocnik_rel:</strong> {debugNarocnikRel}</div>
+        <div><strong>debug stranka_rel:</strong> {debugStrankaRel}</div>
+        <div><strong>form.narocnik_id:</strong> {form.narocnik_id || "PRAZNO"}</div>
+        <div><strong>form.stranka_id:</strong> {form.stranka_id || "PRAZNO"}</div>
+      </div>
+
       {error && (
         <div style={{ color: "#dc2626", fontSize: 13, padding: "8px 12px", background: "#fef2f2", borderRadius: 8 }}>
           ⚠️ {error}
@@ -1439,6 +1617,7 @@ function OpravilaTabela({
   onRefetch,
   onDodaj,
   stranke,
+  narocniki,
   username,
 }: {
   opravila: Opravilo[];
@@ -1447,6 +1626,7 @@ function OpravilaTabela({
   onRefetch: () => void;
   onDodaj: () => void;
   stranke: Post[];
+  narocniki: Post[];
   username: string;
 }) {
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -1502,13 +1682,17 @@ function OpravilaTabela({
   return (
     <div>
       {editOpravilo && (
-        <UrediOpraviloModal
-          opravilo={editOpravilo}
-          onClose={() => setEditOpravilo(null)}
-          onSaved={() => { setEditOpravilo(null); onRefetch(); }}
-          stranke={stranke}
-          username={username}
-        />
+      <UrediOpraviloModal
+        opravilo={editOpravilo}
+        onClose={() => setEditOpravilo(null)}
+        onSaved={() => {
+          setEditOpravilo(null);
+          onRefetch();
+        }}
+        stranke={stranke}
+        narocniki={narocniki}
+        username={username}
+      />
       )}
       <div style={{ marginBottom: 16 }}>
         {/* Zgornja vrstica: desno poravnano — znesek + osvezi + dodaj */}
@@ -1804,57 +1988,66 @@ function OpravilaTabela({
 // ============================================================
 // OPRAVILA SECTION
 // ============================================================
-export function OpravilaSection({ strankaId }: { strankaId: number }) {
-  const { opravila, loading, error, refetch } = useOpravila(strankaId);
+export function OpravilaSection({ entityId, entityType }: { entityId: number; entityType: "narocnik" | "stranka" }) {
+  const { opravila, loading, error, refetch } = useOpravila(entityId, entityType);
   const username = useCurrentUser();
   const [showModal, setShowModal] = useState(false);
-  const [strankaPost, setStrankaPost] = useState<Post | null>(null);
+  const [entityPost, setEntityPost] = useState<Post | null>(null);
+  const allStranke = useAllPosts("stranka");
+  const allNarocniki = useAllPosts("narocnik");
 
   useEffect(() => {
-    async function fetchStranka() {
-      if (!WP_URL || !strankaId) return;
+    async function fetchEntity() {
+      if (!WP_URL || !entityId) return;
 
       try {
         const res = await fetch(
-          `${WP_URL.replace(/\/$/, "")}/wp-json/wp/v2/stranka/${strankaId}?_embed=1`,
+          `${WP_URL.replace(/\/$/, "")}/wp-json/wp/v2/${entityType}/${entityId}?_embed=1`,
           { cache: "no-store" }
         );
 
         if (!res.ok) return;
 
         const data = await res.json();
-        setStrankaPost(data);
+        setEntityPost(data);
       } catch {
-        setStrankaPost(null);
+        setEntityPost(null);
       }
     }
 
-    fetchStranka();
-  }, [strankaId]);
+    fetchEntity();
+  }, [entityId, entityType]);
 
-  const stranke = useMemo(() => {
-    if (!strankaPost) return [];
-    return [strankaPost];
-  }, [strankaPost]);
+  const entityList = useMemo(() => {
+    if (!entityPost) return [];
+    return [entityPost];
+  }, [entityPost]);
+
+  // Za modal: narocnik gre v narocniki prop, stranka pa v stranke prop
+
+  const subtitle = entityType === "narocnik"
+    ? "Zgodovina opravljenega dela za tega naročnika."
+    : "Zgodovina opravljenega dela za to stranko.";
 
   return (
     <div style={{ marginTop: 20 }}>
-      {showModal && (
-        <DodajOpraviloModal
-          onClose={() => setShowModal(false)}
-          onSaved={refetch}
-          stranke={stranke}
-          defaultStrankaId={strankaId}
-          username={username}
-        />
-      )}
+    {showModal && (
+    <DodajOpraviloModal
+      onClose={() => setShowModal(false)}
+      onSaved={refetch}
+      stranke={entityList}
+      defaultEntityId={entityId}
+      entityType={entityType}
+      username={username}
+    />
+    )}
 
       <div style={{ marginBottom: 14 }}>
         <div style={{ fontWeight: 700, fontSize: 15, color: "#111", marginBottom: 4 }}>
           Opravila
         </div>
         <div style={{ fontSize: 13, color: "#888" }}>
-          Zgodovina opravljenega dela za to stranko.
+          {subtitle}
         </div>
       </div>
 
@@ -1864,7 +2057,8 @@ export function OpravilaSection({ strankaId }: { strankaId: number }) {
         error={error}
         onRefetch={refetch}
         onDodaj={() => setShowModal(true)}
-        stranke={stranke}
+        stranke={allStranke}
+        narocniki={allNarocniki}
         username={username}
       />
     </div>

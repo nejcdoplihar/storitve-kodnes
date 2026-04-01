@@ -149,11 +149,13 @@ function NarocnikCard({ acf }: { acf?: Record<string, unknown> }) {
   const get = (k: string) => acf[k] as ACFValue;
   return (
     <Card title="Podatki naročnika">
-      <DetailRow label="Kontaktna oseba" value={renderAcfValue(get("narocnik_kontaktna_oseba") ?? get("kontaktna_oseba"))} />
-      <DetailRow label="Email" value={renderAcfValue(get("narocnik_email") ?? get("email"))} />
-      <DetailRow label="Telefon" value={renderAcfValue(get("narocnik_telefon") ?? get("telefon"))} />
-      <DetailRow label="Podjetje" value={renderAcfValue(get("narocnik_podjetje") ?? get("podjetje"))} />
-      <DetailRow label="Naslov" value={renderAcfValue(get("narocnik_naslov") ?? get("naslov"))} />
+      <DetailRow label="Kontaktna oseba" value={renderAcfValue(get("narocnik_kontaktna_oseba"))} />
+      <DetailRow label="Email" value={renderAcfValue(get("narocnik_email"))} />
+      <DetailRow label="Telefon" value={renderAcfValue(get("narocnik_telefonska_stevilka"))} />
+      <DetailRow label="Naslov" value={renderAcfValue(get("narocnik_naslov"))} />
+      <DetailRow label="Poštna številka" value={renderAcfValue(get("narocnik_postna_stevilka"))} />
+      <DetailRow label="Pošta" value={renderAcfValue(get("narocnik_posta"))} />
+      <DetailRow label="Davčna številka" value={renderAcfValue(get("narocnik_davcna_stevilka"))} />
     </Card>
   );
 }
@@ -313,7 +315,9 @@ export default async function CPTSinglePage({ params }: Props) {
             {type === "narocnik" && <NarocnikCard acf={post.acf} />}
             {type === "stranka" && <StrankaCard acf={post.acf} />}
             {type === "ponudba" && <PonudbaCard acf={post.acf} />}
-            {type === "stranka" && <OpravilaSection strankaId={post.id} />}
+            {(type === "narocnik" || type === "stranka") && (
+              <OpravilaSection entityId={post.id} entityType={type as "narocnik" | "stranka"} />
+            )}
           </div>
 
           {/* Desno — sidebar */}

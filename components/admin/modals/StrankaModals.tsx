@@ -430,11 +430,13 @@ export function NovNarocnikModal({
 }) {
   const [form, setForm] = useState({
     title: "",
-    kontaktna_oseba: "",
-    email: "",
-    telefon: "",
-    podjetje: "",
-    naslov: "",
+    narocnik_kontaktna_oseba: "",
+    narocnik_email: "",
+    narocnik_telefonska_stevilka: "",
+    narocnik_naslov: "",
+    narocnik_postna_stevilka: "",
+    narocnik_posta: "",
+    narocnik_davcna_stevilka: "",
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -485,48 +487,65 @@ export function NovNarocnikModal({
           style={fldStyle}
         />
       </FormField>
+      <FormField label="Kontaktna oseba">
+        <input
+          value={form.narocnik_kontaktna_oseba}
+          onChange={(e) => set("narocnik_kontaktna_oseba", e.target.value)}
+          placeholder="Ime in priimek"
+          style={fldStyle}
+        />
+      </FormField>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-        <FormField label="Kontaktna oseba">
-          <input
-            value={form.kontaktna_oseba}
-            onChange={(e) => set("kontaktna_oseba", e.target.value)}
-            placeholder="Janez Novak"
-            style={fldStyle}
-          />
-        </FormField>
         <FormField label="Email">
           <input
             type="email"
-            value={form.email}
-            onChange={(e) => set("email", e.target.value)}
+            value={form.narocnik_email}
+            onChange={(e) => set("narocnik_email", e.target.value)}
             placeholder="janez@podjetje.si"
             style={fldStyle}
           />
         </FormField>
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         <FormField label="Telefon">
           <input
-            value={form.telefon}
-            onChange={(e) => set("telefon", e.target.value)}
+            value={form.narocnik_telefonska_stevilka}
+            onChange={(e) => set("narocnik_telefonska_stevilka", e.target.value)}
             placeholder="+386 41 123 456"
-            style={fldStyle}
-          />
-        </FormField>
-        <FormField label="Podjetje">
-          <input
-            value={form.podjetje}
-            onChange={(e) => set("podjetje", e.target.value)}
-            placeholder="Podjetje d.o.o."
             style={fldStyle}
           />
         </FormField>
       </div>
       <FormField label="Naslov">
         <input
-          value={form.naslov}
-          onChange={(e) => set("naslov", e.target.value)}
-          placeholder="Ulica 1, 5000 Nova Gorica"
+          value={form.narocnik_naslov}
+          onChange={(e) => set("narocnik_naslov", e.target.value)}
+          placeholder="Ulica in hišna številka"
+          style={fldStyle}
+        />
+      </FormField>
+      <div style={{ display: "grid", gridTemplateColumns: "120px 1fr", gap: 12 }}>
+        <FormField label="Poštna številka">
+          <input
+            value={form.narocnik_postna_stevilka}
+            onChange={(e) => set("narocnik_postna_stevilka", e.target.value)}
+            placeholder="5000"
+            maxLength={4}
+            style={fldStyle}
+          />
+        </FormField>
+        <FormField label="Pošta">
+          <input
+            value={form.narocnik_posta}
+            onChange={(e) => set("narocnik_posta", e.target.value)}
+            placeholder="Nova Gorica"
+            style={fldStyle}
+          />
+        </FormField>
+      </div>
+      <FormField label="Davčna številka">
+        <input
+          value={form.narocnik_davcna_stevilka}
+          onChange={(e) => set("narocnik_davcna_stevilka", e.target.value)}
+          placeholder="SI12345678"
           style={fldStyle}
         />
       </FormField>

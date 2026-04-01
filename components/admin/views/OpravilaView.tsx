@@ -4,13 +4,14 @@
 
 import { useState, useMemo, useRef, useEffect } from "react";
 import { useOpravila } from "@/hooks/useOpravila";
-import { useStranke } from "@/hooks/useWPData";
+import { useStranke, useNarocniki } from "@/hooks/useWPData";
 import { useCurrentUser } from "@/hooks/useAuth";
 import { fmtDate } from "@/lib/helpers";
 import { BRAND } from "@/lib/constants";
 import { icons } from "../Icons";
 import type { Opravilo } from "@/types/admin";
 import type { Post } from "@/types/admin";
+import { getTitleById } from "@/lib/helpers";
 
 const CAS_OPTIONS = Array.from({ length: 32 }, (_, i) => (i + 1) * 0.5);
 
@@ -186,6 +187,7 @@ type OpraviloForm = {
   custom_postavka: boolean;
   urna_postavka: string;
   stranka_id: string;
+  narocnik_id: string;
   placano: boolean;
 };
 
@@ -193,11 +195,13 @@ function OpraviloFormBody({
   form,
   set,
   stranke,
+  narocniki,
   error,
 }: {
   form: OpraviloForm;
   set: (k: string, v: unknown) => void;
   stranke: Post[];
+  narocniki: Post[];
   error: string;
 }) {
   const znesek =
@@ -206,6 +210,15 @@ function OpraviloFormBody({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* Naročnik */}
+      <div>
+        <label style={labelStyle}>Naročnik</label>
+        <StrankaSearchSelect
+          stranke={narocniki}
+          value={form.narocnik_id}
+          onChange={(v) => set("narocnik_id", v)}
+        />
+      </div>
       {/* Stranka */}
       <div>
         <label style={labelStyle}>Stranka</label>
@@ -215,24 +228,15 @@ function OpraviloFormBody({
           onChange={(v) => set("stranka_id", v)}
         />
       </div>
-      {/* Datum + Uporabnik */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-        <div>
-          <label style={labelStyle}>Datum opravila</label>
-          <input
-            type="date"
-            value={`${form.datum_opravila.slice(0, 4)}-${form.datum_opravila.slice(4, 6)}-${form.datum_opravila.slice(6, 8)}`}
-            onChange={(e) => set("datum_opravila", e.target.value.replace(/-/g, ""))}
-            style={inputStyle}
-          />
-        </div>
-        <div>
-          <label style={labelStyle}>Uporabnik</label>
-          <select value={form.uporabnik} onChange={(e) => set("uporabnik", e.target.value)} style={inputStyle}>
-            <option value="nejc">Nejc</option>
-            <option value="klemen">Klemen</option>
-          </select>
-        </div>
+      {/* Datum */}
+      <div>
+        <label style={labelStyle}>Datum opravila</label>
+        <input
+          type="date"
+          value={`${form.datum_opravila.slice(0, 4)}-${form.datum_opravila.slice(4, 6)}-${form.datum_opravila.slice(6, 8)}`}
+          onChange={(e) => set("datum_opravila", e.target.value.replace(/-/g, ""))}
+          style={inputStyle}
+        />
       </div>
       {/* Naslov */}
       <div>
@@ -340,15 +344,17 @@ function OpraviloFormBody({
 // ============================================================
 // DODAJ OPRAVILO MODAL
 // ============================================================
-function DodajOpraviloModal({
+export function DodajOpraviloModal({
   onClose,
   onSaved,
   stranke,
+  narocniki,
   username,
 }: {
   onClose: () => void;
   onSaved: () => void;
   stranke: Post[];
+  narocniki: Post[];
   username: string;
 }) {
   const today = new Date();
@@ -363,6 +369,7 @@ function DodajOpraviloModal({
     custom_postavka: false,
     urna_postavka: "35",
     stranka_id: "",
+    narocnik_id: "",
     placano: false,
   });
   const [saving, setSaving] = useState(false);
@@ -387,6 +394,7 @@ function DodajOpraviloModal({
         body: JSON.stringify({
           ...form,
           stranka_id: form.stranka_id ? parseInt(form.stranka_id) : null,
+          narocnik_id: form.narocnik_id ? parseInt(form.narocnik_id) : null,
           cas_ure: parseFloat(form.cas_ure),
           urna_postavka: parseFloat(form.urna_postavka) || 35,
         }),
@@ -403,7 +411,7 @@ function DodajOpraviloModal({
 
   return (
     <ModalShell title="Dodaj opravilo" onClose={onClose} saving={saving} onSave={handleSave} saveLabel="Shrani opravilo">
-      <OpraviloFormBody form={form} set={set} stranke={stranke} error={error} />
+      <OpraviloFormBody form={form} set={set} stranke={stranke} narocniki={narocniki} error={error} />
     </ModalShell>
   );
 }
@@ -414,11 +422,13 @@ function DodajOpraviloModal({
 function UrediOpraviloModal({
   opravilo,
   stranke,
+  narocniki,
   onClose,
   onSaved,
 }: {
   opravilo: Opravilo;
   stranke: Post[];
+  narocniki: Post[];
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -426,6 +436,12 @@ function UrediOpraviloModal({
   const strankaRel = opravilo.acf?.stranka_rel;
   const initStrankaId = Array.isArray(strankaRel) && strankaRel[0]
     ? String(typeof strankaRel[0] === "object" ? (strankaRel[0] as { ID?: number; post_title?: string }).ID ?? 0 : strankaRel[0])
+    : "";
+
+  // Pridobi narocnik_id iz relacije
+  const narocnikRel = opravilo.acf?.narocnik_rel;
+  const initNarocnikId = Array.isArray(narocnikRel) && narocnikRel[0]
+    ? String(typeof narocnikRel[0] === "object" ? (narocnikRel[0] as { ID?: number; post_title?: string }).ID ?? 0 : narocnikRel[0])
     : "";
 
   // Datum je v formatu d/m/Y — pretvorimo v Ymd za input
@@ -447,6 +463,7 @@ function UrediOpraviloModal({
     custom_postavka: opravilo.acf?.custom_postavka || false,
     urna_postavka: String(opravilo.acf?.urna_postavka || "35"),
     stranka_id: initStrankaId,
+    narocnik_id: initNarocnikId,
     placano: getPlacano(opravilo),
   });
   const [saving, setSaving] = useState(false);
@@ -466,6 +483,7 @@ function UrediOpraviloModal({
           id: opravilo.id,
           ...form,
           stranka_id: form.stranka_id ? parseInt(form.stranka_id) : null,
+          narocnik_id: form.narocnik_id ? parseInt(form.narocnik_id) : null,
           cas_ure: parseFloat(form.cas_ure),
           urna_postavka: parseFloat(form.urna_postavka) || 35,
         }),
@@ -484,7 +502,7 @@ function UrediOpraviloModal({
 
   return (
     <ModalShell title="Uredi opravilo" subtitle={rawTitle} onClose={onClose} saving={saving} onSave={handleSave} saveLabel="Shrani spremembe">
-      <OpraviloFormBody form={form} set={set} stranke={stranke} error={error} />
+      <OpraviloFormBody form={form} set={set} stranke={stranke} narocniki={narocniki} error={error} />
     </ModalShell>
   );
 }
@@ -551,6 +569,7 @@ export function OpravilaTabela({
   onDodaj,
   showStranka = true,
   stranke = [],
+  narocniki = [],
 }: {
   opravila: Opravilo[];
   loading: boolean;
@@ -559,9 +578,11 @@ export function OpravilaTabela({
   onDodaj?: () => void;
   showStranka?: boolean;
   stranke?: Post[];
+  narocniki?: Post[];
 }) {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [updatingIds, setUpdatingIds] = useState<Set<number>>(new Set());
+  const [deletingIds, setDeletingIds] = useState<Set<number>>(new Set());
   const [editTarget, setEditTarget] = useState<Opravilo | null>(null);
 
   const toggleSelect = (id: number) => {
@@ -593,6 +614,24 @@ export function OpravilaTabela({
     }
   };
 
+  const deleteOpravila = async (ids: number[]) => {
+    if (!confirm(`Izbriši ${ids.length} ${ids.length === 1 ? "opravilo" : "opravil"}?`)) return;
+    setDeletingIds(new Set(ids));
+    try {
+      await Promise.all(ids.map(id =>
+        fetch("/api/opravilo/delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id }),
+        })
+      ));
+      await onRefetch();
+      setSelected(new Set());
+    } finally {
+      setDeletingIds(new Set());
+    }
+  };
+
   const skupajZnesek = opravila.reduce((sum, o) => {
     const postavka = o.acf?.custom_postavka ? o.acf?.urna_postavka || 35 : 35;
     return sum + (o.acf?.cas_ure || 0) * postavka;
@@ -611,6 +650,7 @@ export function OpravilaTabela({
         <UrediOpraviloModal
           opravilo={editTarget}
           stranke={stranke}
+          narocniki={narocniki}
           onClose={() => setEditTarget(null)}
           onSaved={onRefetch}
         />
@@ -637,10 +677,13 @@ export function OpravilaTabela({
           {selected.size > 0 && (
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={() => updatePlacano(Array.from(selected), true)} style={{ padding: "6px 12px", borderRadius: 8, border: "none", background: "#dcfce7", color: "#16a34a", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-                ✓ Označi kot plačano ({selected.size})
+                ✓ Plačano ({selected.size})
               </button>
               <button onClick={() => updatePlacano(Array.from(selected), false)} style={{ padding: "6px 12px", borderRadius: 8, border: "none", background: "#fee2e2", color: "#dc2626", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
                 ✗ Neplačano ({selected.size})
+              </button>
+              <button onClick={() => deleteOpravila(Array.from(selected))} style={{ padding: "6px 12px", borderRadius: 8, border: "none", background: "#fef2f2", color: "#dc2626", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                🗑 Izbriši ({selected.size})
               </button>
             </div>
           )}
@@ -669,6 +712,7 @@ export function OpravilaTabela({
                     </div>
                   </th>
                   {showStranka && <th style={thS}>Stranka</th>}
+                  <th style={thS}>Naročnik</th>
                   <th style={thS}>Datum</th>
                   <th style={thS}>Naslov</th>
                   <th style={thS}>Uporabnik</th>
@@ -699,9 +743,12 @@ export function OpravilaTabela({
                       </td>
                       {showStranka && (
                         <td style={{ padding: "12px 16px", fontSize: 13, color: "#555" }}>
-                          {(Array.isArray(o.acf?.stranka_rel) && o.acf.stranka_rel[0]?.post_title) || "—"}
+                          {getTitleById(stranke, o.acf?.stranka_rel?.[0])}
                         </td>
                       )}
+                      <td style={{ padding: "12px 16px", fontSize: 13, color: "#555" }}>
+                        {getTitleById(narocniki, o.acf?.narocnik_rel?.[0])}
+                      </td>
                       <td style={{ padding: "12px 16px", fontSize: 13, color: "#666", whiteSpace: "nowrap" }}>
                         {fmtDate(o.acf?.datum_opravila)}
                       </td>
@@ -730,14 +777,26 @@ export function OpravilaTabela({
                           {placano ? "✓ Plačano" : "Neplačano"}
                         </button>
                       </td>
-                      {/* Gumb Uredi */}
+                      {/* Uredi + Izbriši */}
                       <td style={{ padding: "12px 16px" }}>
-                        <button
-                          onClick={() => setEditTarget(o)}
-                          style={{ fontSize: 12, color: BRAND, fontWeight: 500, background: "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 2, padding: 0, whiteSpace: "nowrap" }}
-                        >
-                          Uredi {icons.arrow}
-                        </button>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <button
+                            onClick={() => setEditTarget(o)}
+                            style={{ fontSize: 12, color: BRAND, fontWeight: 500, background: "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 2, padding: 0, whiteSpace: "nowrap" }}
+                          >
+                            Uredi {icons.arrow}
+                          </button>
+                          <button
+                            onClick={() => deleteOpravila([o.id])}
+                            disabled={deletingIds.has(o.id)}
+                            title="Izbriši opravilo"
+                            style={{ border: "none", background: "transparent", cursor: "pointer", color: "#d1d5db", padding: 4, borderRadius: 6, display: "flex" }}
+                            onMouseEnter={(e) => (e.currentTarget.style.color = "#dc2626")}
+                            onMouseLeave={(e) => (e.currentTarget.style.color = "#d1d5db")}
+                          >
+                            {icons.trash}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -757,6 +816,7 @@ export function OpravilaTabela({
 export function OpravilaView() {
   const { opravila, loading, error, refetch } = useOpravila();
   const { stranke } = useStranke();
+  const { narocniki } = useNarocniki();
   const username = useCurrentUser();
   const [showModal, setShowModal] = useState(false);
 
@@ -767,6 +827,7 @@ export function OpravilaView() {
           onClose={() => setShowModal(false)}
           onSaved={refetch}
           stranke={stranke}
+          narocniki={narocniki}
           username={username}
         />
       )}
@@ -778,6 +839,7 @@ export function OpravilaView() {
         onDodaj={() => setShowModal(true)}
         showStranka={true}
         stranke={stranke}
+        narocniki={narocniki}
       />
     </div>
   );
