@@ -31,6 +31,8 @@ export type Stranka = Post & {
   };
 };
 
+export type Narocnik = Post;
+
 export type Opravilo = {
   id: number;
   slug: string;
