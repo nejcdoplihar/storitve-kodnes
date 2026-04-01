@@ -28,7 +28,7 @@ export function useOpravila(strankaId?: number) {
         data = data.filter((o) => {
           const rel = o.acf?.stranka_rel;
           if (!rel) return false;
-          if (Array.isArray(rel)) return rel.some((r: { ID: number }) => r.ID === strankaId);
+          if (Array.isArray(rel)) return rel.some((r) => Number(r) === strankaId);
           return false;
         });
       }
