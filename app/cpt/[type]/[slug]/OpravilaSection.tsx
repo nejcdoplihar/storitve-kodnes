@@ -1326,7 +1326,6 @@ function UrediOpraviloModal({
         method: "POST",
         headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            id: opravilo.id,
             ...form,
             uporabnik: username,
             stranka_id: form.stranka_id ? parseInt(form.stranka_id) : null,
