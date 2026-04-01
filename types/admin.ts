@@ -36,6 +36,8 @@ export type Opravilo = {
   slug: string;
   title: { rendered: string };
   acf: {
+    narocnik_rel?: number[];
+    stranka_rel?: number[];
     datum_opravila: string;
     uporabnik: string;
     naslov_opravila: string;
@@ -43,7 +45,6 @@ export type Opravilo = {
     cas_ure: number;
     custom_postavka: boolean;
     urna_postavka: number;
-    stranka_rel: Array<{ ID: number; post_title: string; post_name: string }>;
     placano: boolean;
   };
 };

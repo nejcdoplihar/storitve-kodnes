@@ -433,15 +433,16 @@ function UrediOpraviloModal({
   onSaved: () => void;
 }) {
   // Pridobi stranka_id iz relacije
-  const strankaRel = opravilo.acf?.stranka_rel;
-  const initStrankaId = Array.isArray(strankaRel) && strankaRel[0]
-    ? String(typeof strankaRel[0] === "object" ? (strankaRel[0] as { ID?: number; post_title?: string }).ID ?? 0 : strankaRel[0])
+const strankaRel = opravilo.acf?.stranka_rel;
+const initStrankaId =
+  Array.isArray(strankaRel) && strankaRel[0] != null
+    ? String(strankaRel[0])
     : "";
 
-  // Pridobi narocnik_id iz relacije
-  const narocnikRel = opravilo.acf?.narocnik_rel;
-  const initNarocnikId = Array.isArray(narocnikRel) && narocnikRel[0]
-    ? String(typeof narocnikRel[0] === "object" ? (narocnikRel[0] as { ID?: number; post_title?: string }).ID ?? 0 : narocnikRel[0])
+const narocnikRel = opravilo.acf?.narocnik_rel;
+const initNarocnikId =
+  Array.isArray(narocnikRel) && narocnikRel[0] != null
+    ? String(narocnikRel[0])
     : "";
 
   // Datum je v formatu d/m/Y — pretvorimo v Ymd za input

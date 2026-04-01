@@ -1276,15 +1276,17 @@ function UrediOpraviloModal({
   console.log("OPRAVILO:", opravilo);
   console.log("narocnik_rel:", opravilo.acf?.narocnik_rel);
   console.log("stranka_rel:", opravilo.acf?.stranka_rel);
+  const narocnikRel = opravilo.acf?.narocnik_rel;
+  const strankaRel = opravilo.acf?.stranka_rel;
 
-  const initialStrankaId =
-    Array.isArray(opravilo.acf?.stranka_rel) && opravilo.acf.stranka_rel[0]
-      ? String(opravilo.acf.stranka_rel[0])
+  const initNarocnikId =
+    Array.isArray(narocnikRel) && narocnikRel[0]
+      ? String(narocnikRel[0])
       : "";
 
-  const initialNarocnikId =
-    Array.isArray(opravilo.acf?.narocnik_rel) && opravilo.acf.narocnik_rel[0]
-      ? String(opravilo.acf.narocnik_rel[0])
+  const initStrankaId =
+    Array.isArray(strankaRel) && strankaRel[0]
+      ? String(strankaRel[0])
       : "";
 
   const [form, setForm] = useState({
