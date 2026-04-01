@@ -239,7 +239,7 @@ function useOpravila(entityId?: number, entityType?: "narocnik" | "stranka") {
         data = data.filter((o) => {
           const rel = o.acf?.[relField];
           if (!Array.isArray(rel)) return false;
-          return rel.some((r) => r.ID === entityId);
+          return rel.some((r) => Number(r) === entityId);
         });
       }
 
