@@ -1296,8 +1296,8 @@ function UrediOpraviloModal({
     cas_ure: String(opravilo.acf?.cas_ure || "0.5"),
     custom_postavka: Boolean(opravilo.acf?.custom_postavka),
     urna_postavka: String(opravilo.acf?.urna_postavka || 35),
-    stranka_id: initialStrankaId,
-    narocnik_id: initialNarocnikId,
+    stranka_id: initStrankaId,
+    narocnik_id: initNarocnikId,
     placano: Boolean(opravilo.acf?.placano),
   });
 
