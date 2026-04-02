@@ -573,57 +573,41 @@ function UrediStrankoModal({
     loadFreshStranka();
   }, [strankaId]);
 
-  const handleSave = async () => {
-    setSaving(true);
-    setError("");
-    setSuccess("");
+const handleSave = async () => {
+  if (!form.naslov_opravila.trim()) {
+    setError("Naslov opravila je obvezen");
+    return;
+  }
 
-    if (!form.title.trim()) {
-      setError("Naziv stranke je obvezen.");
-      setSaving(false);
-      return;
-    }
+  setSaving(true);
+  setError("");
 
-    try {
-      const payload = {
-        id: strankaId,
-        title: form.title,
-        storitve: form.storitve,
-        domena_url: form.domena_url,
-        potek_storitev: form.potek_storitev,
-        stanje_storitve: form.stanje_storitve,
-        strosek: form.strosek,
-        strosek_obracun: form.strosek_obracun,
-        opombe: form.opombe,
-        logo_id: logoId ?? undefined,
-      };
+  try {
+    const res = await fetch("/api/opravilo/edit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: opravilo.id,
+        ...form,
+        stranka_id: form.stranka_id ? parseInt(form.stranka_id) : null,
+        narocnik_id: form.narocnik_id ? parseInt(form.narocnik_id) : null,
+        cas_ure: parseFloat(form.cas_ure),
+        urna_postavka: parseFloat(form.urna_postavka) || 35,
+        clear_stranka_rel: !form.stranka_id,
+        clear_narocnik_rel: !form.narocnik_id,
+      }),
+    });
 
-      const res = await fetch("/api/stranka/update", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Napaka");
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "Napaka pri shranjevanju");
-      }
-
-      setSuccess("Podatki so bili uspešno posodobljeni.");
-
-      setTimeout(() => {
-        onClose();
-        router.refresh();
-      }, 900);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Napaka pri shranjevanju");
-    } finally {
-      setSaving(false);
-    }
-  };
+    onSaved();
+    onClose();
+  } catch (e) {
+    setError(e instanceof Error ? e.message : "Napaka");
+    setSaving(false);
+  }
+};
 
   return (
     <ModalWrapper
@@ -1362,6 +1346,7 @@ function UrediOpraviloModal({
       onClose={onClose}
       footer={
         <>
+          
           <button onClick={onClose} style={secondaryButtonStyle}>
             Prekliči
           </button>
@@ -1379,6 +1364,9 @@ function UrediOpraviloModal({
         </>
       }
     >
+
+      
+
     <div>
       <label style={labelStyle}>Naročnik</label>
       <div style={{ display: "flex", gap: 8, alignItems: "center", width: "100%" }}>
@@ -1583,21 +1571,8 @@ function UrediOpraviloModal({
         </label>
       </div>
 
-      <div
-        style={{
-          fontSize: 12,
-          color: "#666",
-          background: "#f8fafc",
-          border: "1px solid #e5e7eb",
-          borderRadius: 8,
-          padding: "10px 12px",
-        }}
-      >
-        <div><strong>debug narocnik_rel:</strong> {debugNarocnikRel}</div>
-        <div><strong>debug stranka_rel:</strong> {debugStrankaRel}</div>
-        <div><strong>form.narocnik_id:</strong> {form.narocnik_id || "PRAZNO"}</div>
-        <div><strong>form.stranka_id:</strong> {form.stranka_id || "PRAZNO"}</div>
-      </div>
+        
+     
 
       {error && (
         <div style={{ color: "#dc2626", fontSize: 13, padding: "8px 12px", background: "#fef2f2", borderRadius: 8 }}>

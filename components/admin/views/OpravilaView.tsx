@@ -213,20 +213,70 @@ function OpraviloFormBody({
       {/* Naročnik */}
       <div>
         <label style={labelStyle}>Naročnik</label>
-        <StrankaSearchSelect
-          stranke={narocniki}
-          value={form.narocnik_id}
-          onChange={(v) => set("narocnik_id", v)}
-        />
+        <div style={{ display: "flex", gap: 8, alignItems: "center", width: "100%" }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <StrankaSearchSelect
+              stranke={narocniki}
+              value={form.narocnik_id}
+              onChange={(val) => set("narocnik_id", val)}
+            />
+          </div>
+
+          {form.narocnik_id && (
+            <button
+              type="button"
+              onClick={() => set("narocnik_id", "")}
+              style={{
+                padding: "10px 12px",
+                borderRadius: 8,
+                border: "1px solid #e5e7eb",
+                background: "#fff",
+                color: "#dc2626",
+                cursor: "pointer",
+                fontSize: 13,
+                fontWeight: 600,
+                whiteSpace: "nowrap",
+                flexShrink: 0,
+              }}
+            >
+              Odstrani
+            </button>
+          )}
+        </div>
       </div>
       {/* Stranka */}
       <div>
         <label style={labelStyle}>Stranka</label>
-        <StrankaSearchSelect
-          stranke={stranke}
-          value={form.stranka_id}
-          onChange={(v) => set("stranka_id", v)}
-        />
+        <div style={{ display: "flex", gap: 8, alignItems: "center", width: "100%" }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <StrankaSearchSelect
+              stranke={stranke}
+              value={form.stranka_id}
+              onChange={(val) => set("stranka_id", val)}
+            />
+          </div>
+
+          {form.stranka_id && (
+            <button
+              type="button"
+              onClick={() => set("stranka_id", "")}
+              style={{
+                padding: "10px 12px",
+                borderRadius: 8,
+                border: "1px solid #e5e7eb",
+                background: "#fff",
+                color: "#dc2626",
+                cursor: "pointer",
+                fontSize: 13,
+                fontWeight: 600,
+                whiteSpace: "nowrap",
+                flexShrink: 0,
+              }}
+            >
+              Odstrani
+            </button>
+          )}
+        </div>
       </div>
       {/* Datum */}
       <div>
@@ -384,23 +434,33 @@ export function DodajOpraviloModal({
   const set = (k: string, v: unknown) => setForm((f) => ({ ...f, [k]: v }));
 
   const handleSave = async () => {
-    if (!form.naslov_opravila.trim()) { setError("Naslov opravila je obvezen"); return; }
+    if (!form.naslov_opravila.trim()) {
+      setError("Naslov opravila je obvezen");
+      return;
+    }
+
     setSaving(true);
     setError("");
+
     try {
-      const res = await fetch("/api/opravilo/create", {
+      const res = await fetch("/api/opravilo/edit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          id: opravilo.id,
           ...form,
           stranka_id: form.stranka_id ? parseInt(form.stranka_id) : null,
           narocnik_id: form.narocnik_id ? parseInt(form.narocnik_id) : null,
           cas_ure: parseFloat(form.cas_ure),
           urna_postavka: parseFloat(form.urna_postavka) || 35,
+          clear_stranka_rel: !form.stranka_id,
+          clear_narocnik_rel: !form.narocnik_id,
         }),
       });
+
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Napaka");
+
       onSaved();
       onClose();
     } catch (e) {
@@ -487,6 +547,8 @@ const initNarocnikId =
           narocnik_id: form.narocnik_id ? parseInt(form.narocnik_id) : null,
           cas_ure: parseFloat(form.cas_ure),
           urna_postavka: parseFloat(form.urna_postavka) || 35,
+          clear_stranka_rel: !form.stranka_id,
+          clear_narocnik_rel: !form.narocnik_id,
         }),
       });
       const data = await res.json();

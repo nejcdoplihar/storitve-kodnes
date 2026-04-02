@@ -2,10 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { logActivity } from "@/lib/activityLog";
 
-const WP_URL = process.env.NEXT_PUBLIC_WORDPRESS_URL || "";
+const WP_URL = (process.env.NEXT_PUBLIC_WORDPRESS_URL || "").replace(/\/$/, "");
 const WP_USER = process.env.WP_APP_USER || "";
 const WP_PASS = process.env.WP_APP_PASSWORD || "";
-
 
 export async function POST(req: NextRequest) {
   const cookieStore = await cookies();
@@ -18,21 +17,21 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
-  const {
-    id,
-    naslov_opravila,
-    datum_opravila,
-    uporabnik,
-    opis_opravila,
-    cas_ure,
-    custom_postavka,
-    urna_postavka,
-    narocnik_id,
-    stranka_id,
-    placano,
-    clear_narocnik_rel,
-    clear_stranka_rel,
-  } = body;
+    const {
+      id,
+      naslov_opravila,
+      datum_opravila,
+      uporabnik,
+      opis_opravila,
+      cas_ure,
+      custom_postavka,
+      urna_postavka,
+      narocnik_id,
+      stranka_id,
+      placano,
+      clear_narocnik_rel,
+      clear_stranka_rel,
+    } = body;
 
     if (!id) {
       return NextResponse.json({ error: "Manjka id" }, { status: 400 });
@@ -62,48 +61,41 @@ export async function POST(req: NextRequest) {
     const acfPayload: Record<string, unknown> = {
       datum_opravila: datum_opravila || "",
       uporabnik: uporabnik || "",
-      naslov_opravila,
+      naslov_opravila: String(naslov_opravila).trim(),
       opis_opravila: opis_opravila || "",
-      cas_ure: parseFloat(cas_ure) || 0,
-      custom_postavka: custom_postavka || false,
-      urna_postavka: custom_postavka ? parseFloat(urna_postavka) : 35,
-      placano: placano || false,
+      cas_ure: Number(cas_ure) || 0,
+      custom_postavka: Boolean(custom_postavka),
+      urna_postavka: custom_postavka ? Number(urna_postavka) || 0 : 35,
+      placano: Boolean(placano),
     };
-    
+
+    // NAROČNIK relacija
     if (clear_narocnik_rel) {
-      acfPayload.narocnik_rel = [];
-    } else if (narocnik_id) {
+      // ne pošljemo ničesar — WP ohrani obstoječe ali pa pošljemo null
+      // nekatere WP verzije sprejmejo null za čiščenje relacije
+      acfPayload.narocnik_rel = null;
+    } else if (hasNarocnik) {
       acfPayload.narocnik_rel = [Number(narocnik_id)];
     }
 
+    // STRANKA relacija
     if (clear_stranka_rel) {
-      acfPayload.stranka_rel = [];
-    } else if (stranka_id) {
-      acfPayload.stranka_rel = [Number(stranka_id)];
-    }
-    // relationship polja dodaj samo, če obstajajo
-    if (hasNarocnik) {
-      acfPayload.narocnik_rel = [Number(narocnik_id)];
-    }
-
-    if (hasStranka) {
+      acfPayload.stranka_rel = null;
+    } else if (hasStranka) {
       acfPayload.stranka_rel = [Number(stranka_id)];
     }
 
-    const res = await fetch(
-      `${WP_URL.replace(/\/$/, "")}/wp-json/wp/v2/opravilo/${id}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Basic ${credentials}`,
-        },
-        body: JSON.stringify({
-          title: naslov_opravila,
-          acf: acfPayload,
-        }),
-      }
-    );
+    const res = await fetch(`${WP_URL}/wp-json/wp/v2/opravilo/${id}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Basic ${credentials}`,
+      },
+      body: JSON.stringify({
+        title: String(naslov_opravila).trim(),
+        acf: acfPayload,
+      }),
+    });
 
     const raw = await res.text();
 
@@ -135,7 +127,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         error:
-          error instanceof Error ? error.message : "Napaka pri urejanju opravila",
+          error instanceof Error
+            ? error.message
+            : "Napaka pri urejanju opravila",
       },
       { status: 500 }
     );
