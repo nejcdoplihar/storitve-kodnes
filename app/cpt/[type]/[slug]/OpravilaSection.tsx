@@ -566,41 +566,43 @@ function UrediStrankoModal({
     loadFreshStranka();
   }, [strankaId]);
 
-const handleSave = async () => {
-  if (!form.naslov_opravila.trim()) {
-    setError("Naslov opravila je obvezen");
-    return;
-  }
-
-  setSaving(true);
-  setError("");
-
-  try {
-    const res = await fetch("/api/opravilo/edit", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        id: opravilo.id,
-        ...form,
-        stranka_id: form.stranka_id ? parseInt(form.stranka_id) : null,
-        narocnik_id: form.narocnik_id ? parseInt(form.narocnik_id) : null,
-        cas_ure: parseFloat(form.cas_ure),
-        urna_postavka: parseFloat(form.urna_postavka) || 35,
-        clear_stranka_rel: !form.stranka_id,
-        clear_narocnik_rel: !form.narocnik_id,
-      }),
-    });
-
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Napaka");
-
-    onSaved();
-    onClose();
-  } catch (e) {
-    setError(e instanceof Error ? e.message : "Napaka");
-    setSaving(false);
-  }
-};
+  const handleSave = async () => {
+    if (!form.title.trim()) {
+      setError("Naziv stranke je obvezen.");
+      setSaving(false);
+      return;
+    }
+    setSaving(true);
+    setError("");
+    setSuccess("");
+    try {
+      const payload = {
+        id: strankaId,
+        title: form.title,
+        storitve: form.storitve,
+        domena_url: form.domena_url,
+        potek_storitev: form.potek_storitev,
+        stanje_storitve: form.stanje_storitve,
+        strosek: form.strosek,
+        strosek_obracun: form.strosek_obracun,
+        opombe: form.opombe,
+        logo_id: logoId ?? undefined,
+      };
+      const res = await fetch("/api/stranka/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Napaka pri shranjevanju");
+      setSuccess("Podatki so bili uspešno posodobljeni.");
+      setTimeout(() => { onClose(); router.refresh(); }, 900);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Napaka pri shranjevanju");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <ModalWrapper
