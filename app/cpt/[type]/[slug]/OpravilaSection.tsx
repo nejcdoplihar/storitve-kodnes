@@ -522,14 +522,7 @@ function UrediStrankoModal({
   const set = (k: string, v: unknown) =>
     setForm((prev) => ({ ...prev, [k]: v }));
 
-  const toggleStoritev = (slug: string) => {
-    set(
-      "storitve",
-      form.storitve.includes(slug)
-        ? form.storitve.filter((s) => s !== slug)
-        : [...form.storitve, slug]
-    );
-  };
+
 
   useEffect(() => {
     async function loadFreshStranka() {
