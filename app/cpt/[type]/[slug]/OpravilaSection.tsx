@@ -505,15 +505,14 @@ function UrediStrankoModal({
   const [success, setSuccess] = useState("");
 
   const [form, setForm] = useState({
-    datum_opravila: todayYMD(),
-    naslov_opravila: "",
-    opis_opravila: "",
-    cas_ure: "0.5",
-    custom_postavka: false,
-    urna_postavka: "35",
-    stranka_id: "",
-    narocnik_id: "",
-    placano: false,
+    title: "",
+    storitve: [] as string[],
+    domena_url: "",
+    potek_storitev: "",
+    stanje_storitve: true,
+    strosek: "",
+    strosek_obracun: ["letno"] as string[],
+    opombe: "",
   });
 
   const [logoId, setLogoId] = useState<number | null>(null);
