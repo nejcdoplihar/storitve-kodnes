@@ -1310,18 +1310,21 @@ function UrediOpraviloModal({
     setSaving(true);
     setError("");
 
+    const payload = {
+      id: form.id,
+      ...form,
+      uporabnik: username,
+      stranka_id: form.stranka_id ? parseInt(form.stranka_id) : null,
+      narocnik_id: form.narocnik_id ? parseInt(form.narocnik_id) : null,
+      clear_stranka_rel: !form.stranka_id,
+      clear_narocnik_rel: !form.narocnik_id,
+    };
+
     try {
       const res = await fetch("/api/opravilo/edit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ...form,
-            uporabnik: username,
-            stranka_id: form.stranka_id ? parseInt(form.stranka_id) : null,
-            narocnik_id: form.narocnik_id ? parseInt(form.narocnik_id) : null,
-            clear_stranka_rel: !form.stranka_id,
-            clear_narocnik_rel: !form.narocnik_id,
-          }),
+        body: JSON.stringify(payload),
       });
 
       const raw = await res.text();
@@ -1381,7 +1384,7 @@ function UrediOpraviloModal({
           />
         </div>
 
-        {true && (
+        {form.narocnik_id && (
           <button
             type="button"
             onClick={() => set("narocnik_id", "")}
