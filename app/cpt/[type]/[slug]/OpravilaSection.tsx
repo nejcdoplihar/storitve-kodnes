@@ -1243,7 +1243,6 @@ function DodajOpraviloModal({
 // UREDI OPRAVILO MODAL
 // ============================================================
 function UrediOpraviloModal({
-  
   opravilo,
   onClose,
   onSaved,
@@ -1258,27 +1257,26 @@ function UrediOpraviloModal({
   narocniki: Post[];
   username: string;
 }) {
-  
-  console.log("OPRAVILO:", opravilo);
-  console.log("narocnik_rel:", opravilo.acf?.narocnik_rel);
-  console.log("stranka_rel:", opravilo.acf?.stranka_rel);
   const narocnikRel = opravilo.acf?.narocnik_rel;
   const strankaRel = opravilo.acf?.stranka_rel;
 
   const initNarocnikId =
-    Array.isArray(narocnikRel) && narocnikRel[0]
+    Array.isArray(narocnikRel) && narocnikRel[0] != null
       ? String(narocnikRel[0])
       : "";
 
   const initStrankaId =
-    Array.isArray(strankaRel) && strankaRel[0]
+    Array.isArray(strankaRel) && strankaRel[0] != null
       ? String(strankaRel[0])
       : "";
 
   const [form, setForm] = useState({
     id: opravilo.id,
     datum_opravila: opravilo.acf?.datum_opravila || todayYMD(),
-    naslov_opravila: opravilo.acf?.naslov_opravila || stripHtml(opravilo.title?.rendered) || "",
+    naslov_opravila:
+      opravilo.acf?.naslov_opravila ||
+      stripHtml(opravilo.title?.rendered) ||
+      "",
     opis_opravila: opravilo.acf?.opis_opravila || "",
     cas_ure: String(opravilo.acf?.cas_ure || "0.5"),
     custom_postavka: Boolean(opravilo.acf?.custom_postavka),
@@ -1291,10 +1289,8 @@ function UrediOpraviloModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const debugNarocnikRel = JSON.stringify(opravilo.acf?.narocnik_rel ?? null);
-  const debugStrankaRel = JSON.stringify(opravilo.acf?.stranka_rel ?? null);
-
-  const set = (k: string, v: string | boolean) => setForm((f) => ({ ...f, [k]: v }));
+  const set = (k: string, v: string | boolean) =>
+    setForm((f) => ({ ...f, [k]: v }));
 
   const handleSave = async () => {
     if (!form.naslov_opravila.trim()) {
@@ -1311,7 +1307,6 @@ function UrediOpraviloModal({
     setError("");
 
     const payload = {
-      id: form.id,
       ...form,
       uporabnik: username,
       stranka_id: form.stranka_id ? parseInt(form.stranka_id) : null,
@@ -1336,7 +1331,9 @@ function UrediOpraviloModal({
         data = { error: raw || "Neveljaven odgovor strežnika." };
       }
 
-      if (!res.ok) throw new Error(data.error || "Napaka");
+      if (!res.ok) {
+        throw new Error(data.error || "Napaka");
+      }
 
       onSaved();
       onClose();
@@ -1352,7 +1349,6 @@ function UrediOpraviloModal({
       onClose={onClose}
       footer={
         <>
-          
           <button onClick={onClose} style={secondaryButtonStyle}>
             Prekliči
           </button>
@@ -1370,91 +1366,111 @@ function UrediOpraviloModal({
         </>
       }
     >
+      <div>
+        <label style={labelStyle}>Naročnik</label>
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            alignItems: "center",
+            width: "100%",
+          }}
+        >
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <StrankaSearchSelect
+              stranke={narocniki}
+              value={form.narocnik_id}
+              onChange={(val) => set("narocnik_id", val)}
+            />
+          </div>
 
-      
-
-    <div>
-      <label style={labelStyle}>Naročnik</label>
-      <div style={{ display: "flex", gap: 8, alignItems: "center", width: "100%" }}>
-      <div style={{ flex: 1, minWidth: 0 }}>
-          <StrankaSearchSelect
-            stranke={narocniki}
-            value={form.narocnik_id}
-            onChange={(val) => set("narocnik_id", val)}
-          />
+          {form.narocnik_id && (
+            <button
+              type="button"
+              onClick={() => set("narocnik_id", "")}
+              style={{
+                padding: "10px 12px",
+                borderRadius: 8,
+                border: "1px solid #e5e7eb",
+                background: "#fff",
+                color: "#dc2626",
+                cursor: "pointer",
+                fontSize: 13,
+                fontWeight: 600,
+                whiteSpace: "nowrap",
+                flexShrink: 0,
+              }}
+            >
+              Odstrani
+            </button>
+          )}
         </div>
-
-        {form.narocnik_id && (
-          <button
-            type="button"
-            onClick={() => set("narocnik_id", "")}
-            style={{
-              padding: "10px 12px",
-              borderRadius: 8,
-              border: "1px solid #e5e7eb",
-              background: "#fff",
-              color: "#dc2626",
-              cursor: "pointer",
-              fontSize: 13,
-              fontWeight: 600,
-              whiteSpace: "nowrap",
-              flexShrink: 0,
-            }}
-          >
-            Odstrani
-          </button>
-        )}
       </div>
-    </div>
 
-    <div>
-      <label style={labelStyle}>Stranka</label>
-      <div style={{ display: "flex", gap: 8, alignItems: "center", width: "100%" }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <StrankaSearchSelect
-            stranke={stranke}
-            value={form.stranka_id}
-            onChange={(val) => set("stranka_id", val)}
-          />
+      <div>
+        <label style={labelStyle}>Stranka</label>
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            alignItems: "center",
+            width: "100%",
+          }}
+        >
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <StrankaSearchSelect
+              stranke={stranke}
+              value={form.stranka_id}
+              onChange={(val) => set("stranka_id", val)}
+            />
+          </div>
+
+          {form.stranka_id && (
+            <button
+              type="button"
+              onClick={() => set("stranka_id", "")}
+              style={{
+                padding: "10px 12px",
+                borderRadius: 8,
+                border: "1px solid #e5e7eb",
+                background: "#fff",
+                color: "#dc2626",
+                cursor: "pointer",
+                fontSize: 13,
+                fontWeight: 600,
+                whiteSpace: "nowrap",
+                flexShrink: 0,
+              }}
+            >
+              Odstrani
+            </button>
+          )}
         </div>
-
-        {form.stranka_id && (
-          <button
-            type="button"
-            onClick={() => set("stranka_id", "")}
-            style={{
-              padding: "10px 12px",
-              borderRadius: 8,
-              border: "1px solid #e5e7eb",
-              background: "#fff",
-              color: "#dc2626",
-              cursor: "pointer",
-              fontSize: 13,
-              fontWeight: 600,
-              whiteSpace: "nowrap",
-              flexShrink: 0,
-            }}
-          >
-            Odstrani
-          </button>
-        )}
       </div>
-    </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         <div>
           <label style={labelStyle}>Datum opravila</label>
           <input
             type="date"
-            value={`${form.datum_opravila.slice(0, 4)}-${form.datum_opravila.slice(4, 6)}-${form.datum_opravila.slice(6, 8)}`}
-            onChange={(e) => set("datum_opravila", e.target.value.replace(/-/g, ""))}
+            value={`${form.datum_opravila.slice(0, 4)}-${form.datum_opravila.slice(
+              4,
+              6
+            )}-${form.datum_opravila.slice(6, 8)}`}
+            onChange={(e) =>
+              set("datum_opravila", e.target.value.replace(/-/g, ""))
+            }
             style={inputStyle}
           />
         </div>
 
         <div>
           <label style={labelStyle}>Uporabnik</label>
-          <input value={opravilo.acf?.uporabnik || username} disabled style={{ ...inputStyle, background: "#f8f9fb", color: "#888" }} />
+          <input
+            value={opravilo.acf?.uporabnik || username}
+            disabled
+            style={{ ...inputStyle, background: "#f8f9fb", color: "#888" }}
+          />
         </div>
       </div>
 
@@ -1482,7 +1498,11 @@ function UrediOpraviloModal({
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         <div>
           <label style={labelStyle}>Porabljen čas</label>
-          <select value={form.cas_ure} onChange={(e) => set("cas_ure", e.target.value)} style={inputStyle}>
+          <select
+            value={form.cas_ure}
+            onChange={(e) => set("cas_ure", e.target.value)}
+            style={inputStyle}
+          >
             {CAS_OPTIONS.map((v) => (
               <option key={v} value={v}>
                 {v} {v === 1 ? "ura" : v < 5 ? "ure" : "ur"}
@@ -1499,9 +1519,14 @@ function UrediOpraviloModal({
               value={form.custom_postavka ? form.urna_postavka : "35"}
               disabled={!form.custom_postavka}
               onChange={(e) => set("urna_postavka", e.target.value)}
-              style={{ ...inputStyle, background: form.custom_postavka ? "#fff" : "#f8f9fb" }}
+              style={{
+                ...inputStyle,
+                background: form.custom_postavka ? "#fff" : "#f8f9fb",
+              }}
             />
-            <span style={{ fontSize: 13, color: "#666", whiteSpace: "nowrap" }}>€/h</span>
+            <span style={{ fontSize: 13, color: "#666", whiteSpace: "nowrap" }}>
+              €/h
+            </span>
           </div>
         </div>
       </div>
@@ -1522,11 +1547,18 @@ function UrediOpraviloModal({
             flexShrink: 0,
           }}
         >
-          {form.custom_postavka && <span style={{ color: "#fff", fontSize: 11 }}>✓</span>}
+          {form.custom_postavka && (
+            <span style={{ color: "#fff", fontSize: 11 }}>✓</span>
+          )}
         </div>
         <label
           onClick={() => set("custom_postavka", !form.custom_postavka)}
-          style={{ fontSize: 13, color: "#555", cursor: "pointer", userSelect: "none" }}
+          style={{
+            fontSize: 13,
+            color: "#555",
+            cursor: "pointer",
+            userSelect: "none",
+          }}
         >
           Drugačna urna postavka
         </label>
@@ -1542,12 +1574,19 @@ function UrediOpraviloModal({
           alignItems: "center",
         }}
       >
-        <span style={{ fontSize: 13, color: "#888" }}>Skupaj za to opravilo:</span>
+        <span style={{ fontSize: 13, color: "#888" }}>
+          Skupaj za to opravilo:
+        </span>
         <span style={{ fontSize: 18, fontWeight: 800, color: "#111" }}>
-          {(parseFloat(form.cas_ure) * (form.custom_postavka ? parseFloat(form.urna_postavka) || 0 : 35)).toLocaleString(
-            "sl-SI",
-            { minimumFractionDigits: 2 }
-          )} €
+          {(
+            parseFloat(form.cas_ure) *
+            (form.custom_postavka
+              ? parseFloat(form.urna_postavka) || 0
+              : 35)
+          ).toLocaleString("sl-SI", {
+            minimumFractionDigits: 2,
+          })}{" "}
+          €
         </span>
       </div>
 
@@ -1571,17 +1610,27 @@ function UrediOpraviloModal({
         </div>
         <label
           onClick={() => set("placano", !form.placano)}
-          style={{ fontSize: 13, color: "#555", cursor: "pointer", userSelect: "none" }}
+          style={{
+            fontSize: 13,
+            color: "#555",
+            cursor: "pointer",
+            userSelect: "none",
+          }}
         >
           Že plačano
         </label>
       </div>
 
-        
-     
-
       {error && (
-        <div style={{ color: "#dc2626", fontSize: 13, padding: "8px 12px", background: "#fef2f2", borderRadius: 8 }}>
+        <div
+          style={{
+            color: "#dc2626",
+            fontSize: 13,
+            padding: "8px 12px",
+            background: "#fef2f2",
+            borderRadius: 8,
+          }}
+        >
           ⚠️ {error}
         </div>
       )}

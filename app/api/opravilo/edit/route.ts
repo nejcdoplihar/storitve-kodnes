@@ -69,18 +69,14 @@ export async function POST(req: NextRequest) {
       placano: Boolean(placano),
     };
 
-    // NAROČNIK relacija
     if (clear_narocnik_rel) {
-      // ne pošljemo ničesar — WP ohrani obstoječe ali pa pošljemo null
-      // nekatere WP verzije sprejmejo null za čiščenje relacije
-      acfPayload.narocnik_rel = null;
+      acfPayload.narocnik_rel = false;
     } else if (hasNarocnik) {
       acfPayload.narocnik_rel = [Number(narocnik_id)];
     }
 
-    // STRANKA relacija
     if (clear_stranka_rel) {
-      acfPayload.stranka_rel = null;
+      acfPayload.stranka_rel = false;
     } else if (hasStranka) {
       acfPayload.stranka_rel = [Number(stranka_id)];
     }
