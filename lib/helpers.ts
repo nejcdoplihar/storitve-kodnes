@@ -25,22 +25,9 @@ export function getStoritveLabel(s: string | string[]): string {
 }
 
 // ACF datum "20260311" → Date
-// Pretvori ACF datum v Date objekt
-// Podpira: YYYYMMDD (20260316) in d/m/Y (16/03/2026)
 export function parseACFDate(d: string): Date | null {
-  if (!d) return null;
-  // Format YYYYMMDD
-  if (/^\d{8}$/.test(d)) {
-    return new Date(`${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`);
-  }
-  // Format d/m/Y (16/03/2026) ali d.m.Y
-  const parts = d.split(/[\/\.]/).map(Number);
-  if (parts.length === 3) {
-    const [day, month, year] = parts;
-    if (year > 1000) return new Date(year, month - 1, day); // d/m/Y
-    return new Date(parts[0], parts[1] - 1, parts[2]); // Y/m/d fallback
-  }
-  return null;
+  if (!d || d.length !== 8) return null;
+  return new Date(`${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`);
 }
 
 export function formatACFDate(d: string): string {
@@ -62,11 +49,10 @@ export function isThisMonth(d: string): boolean {
   return dt.getFullYear() === now.getFullYear() && dt.getMonth() === now.getMonth();
 }
 
-// Format ACF datum → sl-SI (podpira YYYYMMDD in d/m/Y)
+// Format ACF date YYYYMMDD → sl-SI
 export function fmtDate(d: string): string {
-  const dt = parseACFDate(d);
-  if (!dt) return d || "—";
-  return dt.toLocaleDateString("sl-SI");
+  if (!d || d.length !== 8) return d || "—";
+  return new Date(`${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`).toLocaleDateString("sl-SI");
 }
 
 // Today as YYYYMMDD
@@ -91,8 +77,16 @@ export function getAnnualCost(cost: number, billing: string | string[]): number 
   }
 }
 
-export function getTitleById(list: any[], id?: number) {
+// Poišče naziv po ID iz Post array (za relationship polja)
+export function getTitleById(
+  posts: Array<{ id: number; title: { rendered: string } }>,
+  id: number | { ID?: number; post_title?: string } | undefined
+): string {
   if (!id) return "—";
-  const item = list.find((p) => p.id === id);
-  return item ? item.title?.rendered?.replace(/<[^>]*>/g, "").trim() : "—";
+  // ACF relationship vrne objekt ali number
+  if (typeof id === "object") {
+    return id.post_title || "—";
+  }
+  const post = posts.find((p) => p.id === id);
+  return post ? post.title.rendered.replace(/<[^>]*>/g, "") : "—";
 }
