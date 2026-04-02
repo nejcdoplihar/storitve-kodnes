@@ -532,34 +532,54 @@ const initNarocnikId =
 
   const set = (k: string, v: unknown) => setForm((f) => ({ ...f, [k]: v }));
 
-  const handleSave = async () => {
-    if (!form.naslov_opravila.trim()) { setError("Naslov opravila je obvezen"); return; }
-    setSaving(true);
-    setError("");
-    try {
-      const res = await fetch("/api/opravilo/edit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: opravilo.id,
-          ...form,
-          stranka_id: form.stranka_id ? parseInt(form.stranka_id) : null,
-          narocnik_id: form.narocnik_id ? parseInt(form.narocnik_id) : null,
-          cas_ure: parseFloat(form.cas_ure),
-          urna_postavka: parseFloat(form.urna_postavka) || 35,
-          clear_stranka_rel: !form.stranka_id,
-          clear_narocnik_rel: !form.narocnik_id,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Napaka");
-      onSaved();
-      onClose();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Napaka");
-      setSaving(false);
-    }
+const handleSave = async () => {
+  if (!form.naslov_opravila.trim()) {
+    setError("Naslov je obvezen");
+    return;
+  }
+
+  if (!form.narocnik_id && !form.stranka_id) {
+    setError("Izberi naročnika ali stranko");
+    return;
+  }
+
+  setSaving(true);
+  setError("");
+
+  const payload = {
+    ...form,
+    uporabnik: username,
+    stranka_id: form.stranka_id ? parseInt(form.stranka_id) : null,
+    narocnik_id: form.narocnik_id ? parseInt(form.narocnik_id) : null,
+    clear_stranka_rel: !form.stranka_id,
+    clear_narocnik_rel: !form.narocnik_id,
   };
+
+  try {
+    const res = await fetch("/api/opravilo/edit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    const raw = await res.text();
+
+    let data: any = {};
+    try {
+      data = raw ? JSON.parse(raw) : {};
+    } catch {
+      data = { error: raw || "Neveljaven odgovor strežnika." };
+    }
+
+    if (!res.ok) throw new Error(data.error || "Napaka");
+
+    onSaved();
+    onClose();
+  } catch (e) {
+    setError(e instanceof Error ? e.message : "Napaka");
+    setSaving(false);
+  }
+};
 
   const rawTitle = opravilo.acf?.naslov_opravila || opravilo.title.rendered.replace(/<[^>]*>/g, "");
 
