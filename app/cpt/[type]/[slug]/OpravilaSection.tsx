@@ -1276,6 +1276,7 @@ function UrediOpraviloModal({
       : "";
 
   const [form, setForm] = useState({
+    id: opravilo.id,
     datum_opravila: opravilo.acf?.datum_opravila || todayYMD(),
     naslov_opravila: opravilo.acf?.naslov_opravila || stripHtml(opravilo.title?.rendered) || "",
     opis_opravila: opravilo.acf?.opis_opravila || "",
