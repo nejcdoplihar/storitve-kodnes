@@ -546,6 +546,7 @@ const handleSave = async () => {
   setError("");
 
   const payload = {
+    id: opravilo.id,
     ...form,
     stranka_id: form.stranka_id ? parseInt(form.stranka_id) : null,
     narocnik_id: form.narocnik_id ? parseInt(form.narocnik_id) : null,
