@@ -443,7 +443,7 @@ export function DodajOpraviloModal({
     setError("");
 
     try {
-      const res = await fetch("/api/opravilo/edit", {
+      const res = await fetch("/api/opravilo/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
