@@ -666,6 +666,30 @@ export function OpravilaTabela({
   const [updatingIds, setUpdatingIds] = useState<Set<number>>(new Set());
   const [deletingIds, setDeletingIds] = useState<Set<number>>(new Set());
   const [editTarget, setEditTarget] = useState<Opravilo | null>(null);
+  const [filterStranka, setFilterStranka] = useState("");
+  const [filterNarocnik, setFilterNarocnik] = useState("");
+  const [filterPlacano, setFilterPlacano] = useState<"" | "placano" | "neplacano">("");
+
+  // Filtrirani rezultati
+  const filtered = useMemo(() => {
+    return opravila.filter((o) => {
+      if (filterStranka) {
+        const rel = o.acf?.stranka_rel;
+        const id = Array.isArray(rel) ? String(rel[0]) : String(rel ?? "");
+        if (id !== filterStranka) return false;
+      }
+      if (filterNarocnik) {
+        const rel = o.acf?.narocnik_rel;
+        const id = Array.isArray(rel) ? String(rel[0]) : String(rel ?? "");
+        if (id !== filterNarocnik) return false;
+      }
+      if (filterPlacano === "placano" && !getPlacano(o)) return false;
+      if (filterPlacano === "neplacano" && getPlacano(o)) return false;
+      return true;
+    });
+  }, [opravila, filterStranka, filterNarocnik, filterPlacano]);
+
+  const hasFilter = filterStranka || filterNarocnik || filterPlacano;
 
   const toggleSelect = (id: number) => {
     setSelected((prev) => {
@@ -677,8 +701,8 @@ export function OpravilaTabela({
   };
 
   const toggleAll = () => {
-    if (selected.size === opravila.length) setSelected(new Set());
-    else setSelected(new Set(opravila.map((o) => o.id)));
+    if (selected.size === filtered.length) setSelected(new Set());
+    else setSelected(new Set(filtered.map((o) => o.id)));
   };
 
   const updatePlacano = async (ids: number[], placano: boolean) => {
@@ -714,12 +738,12 @@ export function OpravilaTabela({
     }
   };
 
-  const skupajZnesek = opravila.reduce((sum, o) => {
+  const skupajZnesek = filtered.reduce((sum, o) => {
     const postavka = o.acf?.custom_postavka ? o.acf?.urna_postavka || 35 : 35;
     return sum + (o.acf?.cas_ure || 0) * postavka;
   }, 0);
 
-  const neplačanoZnesek = opravila
+  const neplačanoZnesek = filtered
     .filter((o) => !getPlacano(o))
     .reduce((sum, o) => {
       const postavka = o.acf?.custom_postavka ? o.acf?.urna_postavka || 35 : 35;
@@ -741,7 +765,7 @@ export function OpravilaTabela({
       {/* Summary */}
       <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
         {[
-          { label: "Skupaj opravil", value: opravila.length, color: "#111", border: "#f0f0f0" },
+          { label: "Skupaj opravil", value: filtered.length + (hasFilter ? ` / ${opravila.length}` : ""), color: "#111", border: "#f0f0f0" },
           { label: "Skupaj vrednost", value: `${skupajZnesek.toLocaleString("sl-SI", { minimumFractionDigits: 2 })} €`, color: "#111", border: "#f0f0f0" },
           { label: "Neplačano", value: `${neplačanoZnesek.toLocaleString("sl-SI", { minimumFractionDigits: 2 })} €`, color: "#dc2626", border: "#fee2e2" },
         ].map(({ label, value, color, border }) => (
@@ -753,9 +777,59 @@ export function OpravilaTabela({
       </div>
 
       <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #f0f0f0", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", overflow: "hidden" }}>
+        {/* Filter bar */}
+        {showStranka && (stranke.length > 0 || narocniki.length > 0) && (
+          <div style={{ padding: "12px 20px", borderBottom: "1px solid #f5f5f5", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", background: "#fafafa" }}>
+            {stranke.length > 0 && (
+              <select
+                value={filterStranka}
+                onChange={(e) => { setFilterStranka(e.target.value); setSelected(new Set()); }}
+                style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #e5e7eb", fontSize: 13, color: filterStranka ? "#111" : "#888", background: "#fff", cursor: "pointer" }}
+              >
+                <option value="">Vse stranke</option>
+                {stranke.map((s) => (
+                  <option key={s.id} value={String(s.id)}>
+                    {s.title.rendered.replace(/<[^>]*>/g, "")}
+                  </option>
+                ))}
+              </select>
+            )}
+            {narocniki.length > 0 && (
+              <select
+                value={filterNarocnik}
+                onChange={(e) => { setFilterNarocnik(e.target.value); setSelected(new Set()); }}
+                style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #e5e7eb", fontSize: 13, color: filterNarocnik ? "#111" : "#888", background: "#fff", cursor: "pointer" }}
+              >
+                <option value="">Vsi naročniki</option>
+                {narocniki.map((n) => (
+                  <option key={n.id} value={String(n.id)}>
+                    {n.title.rendered.replace(/<[^>]*>/g, "")}
+                  </option>
+                ))}
+              </select>
+            )}
+            <select
+              value={filterPlacano}
+              onChange={(e) => { setFilterPlacano(e.target.value as "" | "placano" | "neplacano"); setSelected(new Set()); }}
+              style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #e5e7eb", fontSize: 13, color: filterPlacano ? "#111" : "#888", background: "#fff", cursor: "pointer" }}
+            >
+              <option value="">Vse (plačano/neplačano)</option>
+              <option value="placano">✓ Samo plačano</option>
+              <option value="neplacano">✗ Samo neplačano</option>
+            </select>
+            {hasFilter && (
+              <button
+                onClick={() => { setFilterStranka(""); setFilterNarocnik(""); setFilterPlacano(""); setSelected(new Set()); }}
+                style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #e5e7eb", background: "#fff", fontSize: 12, color: "#888", cursor: "pointer" }}
+              >
+                × Počisti filtre
+              </button>
+            )}
+          </div>
+        )}
         {/* Toolbar */}
         <div style={{ padding: "14px 20px", borderBottom: "1px solid #f5f5f5", display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ fontSize: 14, fontWeight: 600, color: "#111", flex: 1 }}>Opravila ({opravila.length})</span>
+          <span style={{ fontSize: 14, fontWeight: 600, color: "#111", flex: 1 }}>Opravila ({filtered.length}{hasFilter ? ` / ${opravila.length}` : ""})</span>
           {selected.size > 0 && (
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={() => updatePlacano(Array.from(selected), true)} style={{ padding: "6px 12px", borderRadius: 8, border: "none", background: "#dcfce7", color: "#16a34a", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
@@ -781,16 +855,16 @@ export function OpravilaTabela({
 
         {error && <div style={{ padding: 20, background: "#fef2f2", color: "#dc2626", fontSize: 13 }}>⚠️ Napaka: {error}</div>}
         {loading && <div style={{ padding: 40, textAlign: "center", color: "#aaa", fontSize: 14 }}>Nalaganje opravil...</div>}
-        {!loading && !error && opravila.length === 0 && <div style={{ padding: 40, textAlign: "center", color: "#aaa", fontSize: 14 }}>Ni opravil</div>}
+        {!loading && !error && filtered.length === 0 && <div style={{ padding: 40, textAlign: "center", color: "#aaa", fontSize: 14 }}>{hasFilter ? "Ni rezultatov za izbrane filtre" : "Ni opravil"}</div>}
 
-        {!loading && !error && opravila.length > 0 && (
+        {!loading && !error && filtered.length > 0 && (
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ background: "#fafafa" }}>
                   <th style={{ padding: "10px 16px", width: 36 }}>
-                    <div onClick={toggleAll} style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${selected.size === opravila.length ? BRAND : "#d1d5db"}`, background: selected.size === opravila.length ? BRAND : "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      {selected.size === opravila.length && <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg>}
+                    <div onClick={toggleAll} style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${selected.size === filtered.length && filtered.length > 0 ? BRAND : "#d1d5db"}`, background: selected.size === filtered.length && filtered.length > 0 ? BRAND : "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      {selected.size === filtered.length && filtered.length > 0 && <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg>}
                     </div>
                   </th>
                   {showStranka && <th style={thS}>Stranka</th>}
@@ -805,7 +879,7 @@ export function OpravilaTabela({
                 </tr>
               </thead>
               <tbody>
-                {opravila.map((o, i) => {
+                {filtered.map((o, i) => {
                   const placano = getPlacano(o);
                   const postavka = o.acf?.custom_postavka ? o.acf?.urna_postavka || 35 : 35;
                   const znesek = (o.acf?.cas_ure || 0) * postavka;
@@ -814,7 +888,7 @@ export function OpravilaTabela({
                   return (
                     <tr
                       key={o.id}
-                      style={{ borderBottom: i < opravila.length - 1 ? "1px solid #f7f7f7" : "none", background: isSelected ? "#f0fdf4" : "transparent", opacity: isUpdating ? 0.5 : 1 }}
+                      style={{ borderBottom: i < filtered.length - 1 ? "1px solid #f7f7f7" : "none", background: isSelected ? "#f0fdf4" : "transparent", opacity: isUpdating ? 0.5 : 1 }}
                       onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.background = "#fafafa"; }}
                       onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.background = "transparent"; }}
                     >

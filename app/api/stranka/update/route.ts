@@ -33,10 +33,38 @@ export async function POST(req: NextRequest) {
       strosek_obracun,
       opombe,
       logo_id,
+      narocnik_id,
+      clear_narocnik_rel,
     } = body;
 
     if (!id) {
       return NextResponse.json({ error: "Manjka ID" }, { status: 400 });
+    }
+
+    const hasNarocnik =
+      narocnik_id !== null &&
+      narocnik_id !== undefined &&
+      narocnik_id !== "" &&
+      !Number.isNaN(Number(narocnik_id));
+
+    const acfPayload: Record<string, unknown> = {
+      storitve: Array.isArray(storitve) ? storitve : [],
+      domena_url: domena_url || "",
+      potek_storitev: potek_storitev || "",
+      stanje_storitve: Boolean(stanje_storitve),
+      stanje_vzdrzevanja: Boolean(stanje_vzdrzevanja),
+      strosek:
+        strosek !== "" && strosek !== null && strosek !== undefined
+          ? Number(strosek)
+          : "",
+      strosek_obracun: Array.isArray(strosek_obracun) ? strosek_obracun : [],
+      opombe: opombe || "",
+    };
+
+    if (clear_narocnik_rel) {
+      acfPayload.narocnik_rel = false;
+    } else if (hasNarocnik) {
+      acfPayload.narocnik_rel = [Number(narocnik_id)];
     }
 
     const wpPayload = {
@@ -44,19 +72,7 @@ export async function POST(req: NextRequest) {
       ...(logo_id !== undefined
         ? { featured_media: logo_id ? Number(logo_id) : 0 }
         : {}),
-      acf: {
-        storitve: Array.isArray(storitve) ? storitve : [],
-        domena_url: domena_url || "",
-        potek_storitev: potek_storitev || "",
-        stanje_storitve: Boolean(stanje_storitve),
-        stanje_vzdrzevanja: Boolean(stanje_vzdrzevanja),
-        strosek:
-          strosek !== "" && strosek !== null && strosek !== undefined
-            ? Number(strosek)
-            : "",
-        strosek_obracun: Array.isArray(strosek_obracun) ? strosek_obracun : [],
-        opombe: opombe || "",
-      },
+      acf: acfPayload,
     };
 
     const wpRes = await fetch(`${WP_URL}/wp-json/wp/v2/stranka/${id}`, {
@@ -96,7 +112,12 @@ export async function POST(req: NextRequest) {
       revalidatePath(`/cpt/stranka/${wpData.slug}`);
     }
 
-    logActivity({ title: title ? String(title).trim() : `Stranka #${id}`, type: "Stranka", action: "UREJENO", user });
+    logActivity({
+      title: title ? String(title).trim() : `Stranka #${id}`,
+      type: "Stranka",
+      action: "UREJENO",
+      user,
+    });
 
     return NextResponse.json({
       ok: true,

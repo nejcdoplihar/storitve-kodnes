@@ -14,7 +14,6 @@ export async function POST(req: NextRequest) {
 
   const user = cookieStore.get("dashboard_auth")?.value || "neznan";
   if (!user) {
-
     return NextResponse.json({ error: "Ni avtorizacije" }, { status: 401 });
   }
 
@@ -27,10 +26,13 @@ export async function POST(req: NextRequest) {
       domena_url,
       potek_storitev,
       stanje_storitve,
+      stanje_vzdrzevanja,
       strosek,
       strosek_obracun,
       opombe,
       logo_id,
+      narocnik_id,
+      clear_narocnik_rel,
     } = body;
 
     if (!title || !String(title).trim()) {
@@ -40,21 +42,39 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const hasNarocnik =
+      narocnik_id !== null &&
+      narocnik_id !== undefined &&
+      narocnik_id !== "" &&
+      !Number.isNaN(Number(narocnik_id));
+
+    const acfPayload: Record<string, unknown> = {
+      storitve: Array.isArray(storitve) ? storitve : [],
+      domena_url: domena_url || "",
+      potek_storitev: potek_storitev || "",
+      stanje_storitve: Boolean(stanje_storitve),
+      stanje_vzdrzevanja: Boolean(stanje_vzdrzevanja),
+      strosek:
+        strosek !== "" && strosek !== null && strosek !== undefined
+          ? Number(strosek)
+          : 0,
+      strosek_obracun: Array.isArray(strosek_obracun)
+        ? strosek_obracun
+        : [],
+      opombe: opombe || "",
+    };
+
+    if (clear_narocnik_rel) {
+      acfPayload.narocnik_rel = false;
+    } else if (hasNarocnik) {
+      acfPayload.narocnik_rel = [Number(narocnik_id)];
+    }
+
     const wpPayload = {
       title: String(title).trim(),
       status: "publish",
       ...(logo_id ? { featured_media: Number(logo_id) } : {}),
-      acf: {
-        storitve: Array.isArray(storitve) ? storitve : [],
-        domena_url: domena_url || "",
-        potek_storitev: potek_storitev || "",
-        stanje_storitve: Boolean(stanje_storitve),
-        strosek: strosek ? Number(strosek) : 0,
-        strosek_obracun: Array.isArray(strosek_obracun)
-          ? strosek_obracun
-          : [],
-        opombe: opombe || "",
-      },
+      acf: acfPayload,
     };
 
     const res = await fetch(`${WP_URL}/wp-json/wp/v2/stranka`, {
@@ -66,15 +86,25 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify(wpPayload),
     });
 
+    const raw = await res.text();
+
+    let data: any;
+    try {
+      data = raw ? JSON.parse(raw) : {};
+    } catch {
+      data = raw;
+    }
+
     if (!res.ok) {
-      const err = await res.text();
       return NextResponse.json(
-        { error: `WP napaka: ${err}` },
+        {
+          error: `WP napaka: ${
+            typeof data === "string" ? data : JSON.stringify(data)
+          }`,
+        },
         { status: 500 }
       );
     }
-
-    const data = await res.json();
 
     logActivity({
       title: String(title).trim(),
@@ -92,7 +122,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         error:
-          error instanceof Error ? error.message : "Neznana napaka pri ustvarjanju stranke",
+          error instanceof Error
+            ? error.message
+            : "Neznana napaka pri ustvarjanju stranke",
       },
       { status: 500 }
     );

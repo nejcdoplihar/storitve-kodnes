@@ -4,13 +4,24 @@
 
 import { useState, useRef } from "react";
 import { BRAND } from "@/lib/constants";
-import { ModalWrapper, FormField, BtnPrimary, BtnSecondary, ErrorMsg, fldStyle } from "../UI";
+import {
+  ModalWrapper,
+  FormField,
+  BtnPrimary,
+  BtnSecondary,
+  ErrorMsg,
+  fldStyle,
+} from "../UI";
 import type { Post } from "@/types/admin";
 
 // ============================================================
 // LOGO UPLOAD FIELD
 // ============================================================
-function LogoUploadField({ onUploaded }: { onUploaded: (id: number, url: string) => void }) {
+function LogoUploadField({
+  onUploaded,
+}: {
+  onUploaded: (id: number, url: string) => void;
+}) {
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -21,12 +32,19 @@ function LogoUploadField({ onUploaded }: { onUploaded: (id: number, url: string)
     setUploading(true);
     const localUrl = URL.createObjectURL(file);
     setPreview(localUrl);
+
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const res = await fetch("/api/media/upload", { method: "POST", body: fd });
+
+      const res = await fetch("/api/media/upload", {
+        method: "POST",
+        body: fd,
+      });
+
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Upload napaka");
+
       onUploaded(data.id, data.url);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Upload napaka");
@@ -48,6 +66,7 @@ function LogoUploadField({ onUploaded }: { onUploaded: (id: number, url: string)
           if (f) handleFile(f);
         }}
       />
+
       <div
         onClick={() => inputRef.current?.click()}
         style={{
@@ -79,10 +98,18 @@ function LogoUploadField({ onUploaded }: { onUploaded: (id: number, url: string)
               }}
             />
             <div style={{ textAlign: "left" }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: uploading ? "#aaa" : "#111" }}>
+              <div
+                style={{
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: uploading ? "#aaa" : "#111",
+                }}
+              >
                 {uploading ? "Nalagam v WordPress..." : "✓ Logotip naložen"}
               </div>
-              <div style={{ fontSize: 12, color: BRAND, marginTop: 2 }}>Klikni za zamenjavo</div>
+              <div style={{ fontSize: 12, color: BRAND, marginTop: 2 }}>
+                Klikni za zamenjavo
+              </div>
             </div>
           </>
         ) : (
@@ -95,37 +122,51 @@ function LogoUploadField({ onUploaded }: { onUploaded: (id: number, url: string)
           </div>
         )}
       </div>
-      {error && <div style={{ fontSize: 12, color: "#dc2626", marginTop: 6 }}>{error}</div>}
+
+      {error && (
+        <div style={{ fontSize: 12, color: "#dc2626", marginTop: 6 }}>
+          {error}
+        </div>
+      )}
     </div>
   );
 }
 
 // ============================================================
-// STRANKA SEARCH SELECT (za ponudbo)
+// SEARCH SELECT
 // ============================================================
-function StrankaSearchSelect({
-  stranke,
+function SearchSelect({
+  items = [],
   value,
   onChange,
+  placeholder = "Izberi...",
 }: {
-  stranke: Post[];
+  items?: Post[];
   value: string;
   onChange: (v: string) => void;
+  placeholder?: string;
 }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [dropPos, setDropPos] = useState({ top: 0, left: 0, width: 0 });
   const btnRef = useRef<HTMLButtonElement>(null);
 
-  const filtered = stranke.filter((s) =>
+  const safeItems = Array.isArray(items) ? items : [];
+
+  const filtered = safeItems.filter((s) =>
     s.title.rendered.toLowerCase().includes(query.toLowerCase())
   );
-  const selected = stranke.find((s) => String(s.id) === value);
+
+  const selected = safeItems.find((s) => String(s.id) === value);
 
   const handleOpen = () => {
     if (btnRef.current) {
       const rect = btnRef.current.getBoundingClientRect();
-      setDropPos({ top: rect.bottom + window.scrollY + 4, left: rect.left + window.scrollX, width: rect.width });
+      setDropPos({
+        top: rect.bottom + window.scrollY + 4,
+        left: rect.left + window.scrollX,
+        width: rect.width,
+      });
     }
     setOpen(true);
   };
@@ -137,13 +178,23 @@ function StrankaSearchSelect({
         type="button"
         onClick={handleOpen}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
-        style={{ ...fldStyle, textAlign: "left", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}
+        style={{
+          ...fldStyle,
+          textAlign: "left",
+          cursor: "pointer",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
       >
         <span style={{ color: selected ? "#111" : "#aaa" }}>
-          {selected ? selected.title.rendered.replace(/<[^>]*>/g, "") : "Izberi stranko..."}
+          {selected
+            ? selected.title.rendered.replace(/<[^>]*>/g, "")
+            : placeholder}
         </span>
         <span style={{ color: "#aaa", fontSize: 10 }}>▼</span>
       </button>
+
       {open && (
         <div
           style={{
@@ -171,9 +222,12 @@ function StrankaSearchSelect({
               style={{ ...fldStyle, padding: "6px 10px", fontSize: 13 }}
             />
           </div>
+
           <div style={{ overflowY: "auto", flex: 1 }}>
             {filtered.length === 0 ? (
-              <div style={{ padding: "12px 14px", fontSize: 13, color: "#aaa" }}>Ni rezultatov</div>
+              <div style={{ padding: "12px 14px", fontSize: 13, color: "#aaa" }}>
+                Ni rezultatov
+              </div>
             ) : (
               filtered.map((s) => (
                 <div
@@ -193,7 +247,8 @@ function StrankaSearchSelect({
                   }}
                   onMouseEnter={(e) => (e.currentTarget.style.background = "#f8fafc")}
                   onMouseLeave={(e) =>
-                    (e.currentTarget.style.background = String(s.id) === value ? `${BRAND}10` : "#fff")
+                    (e.currentTarget.style.background =
+                      String(s.id) === value ? `${BRAND}10` : "#fff")
                   }
                   dangerouslySetInnerHTML={{ __html: s.title.rendered }}
                 />
@@ -207,15 +262,41 @@ function StrankaSearchSelect({
 }
 
 // ============================================================
+// STRANKA SEARCH SELECT (za ponudbo / backward compatible)
+// ============================================================
+function StrankaSearchSelect({
+  stranke,
+  value,
+  onChange,
+}: {
+  stranke: Post[];
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <SearchSelect
+      items={stranke}
+      value={value}
+      onChange={onChange}
+      placeholder="Izberi stranko..."
+    />
+  );
+}
+
+// ============================================================
 // NOVA STRANKA MODAL
 // ============================================================
 export function NovaStrankaModal({
   onClose,
   onSaved,
+  narocniki,
 }: {
   onClose: () => void;
   onSaved: () => void;
+  narocniki?: Post[];
 }) {
+  const safeNarocniki = Array.isArray(narocniki) ? narocniki : [];
+
   const [form, setForm] = useState({
     title: "",
     storitve: [] as string[],
@@ -225,12 +306,15 @@ export function NovaStrankaModal({
     strosek: "",
     strosek_obracun: ["letno"],
     opombe: "",
+    narocnik_id: "",
   });
+
   const [logoId, setLogoId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const set = (k: string, v: unknown) => setForm((f) => ({ ...f, [k]: v }));
+  const set = (k: string, v: unknown) =>
+    setForm((f) => ({ ...f, [k]: v }));
 
   const toggleStoritev = (slug: string) => {
     set(
@@ -246,16 +330,25 @@ export function NovaStrankaModal({
       setError("Naziv stranke je obvezen");
       return;
     }
+
     setSaving(true);
     setError("");
+
     try {
       const res = await fetch("/api/stranka/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, logo_id: logoId }),
+        body: JSON.stringify({
+          ...form,
+          logo_id: logoId,
+          narocnik_id: form.narocnik_id ? parseInt(form.narocnik_id) : null,
+          clear_narocnik_rel: !form.narocnik_id,
+        }),
       });
+
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Napaka");
+
       onSaved();
       onClose();
     } catch (e) {
@@ -300,9 +393,50 @@ export function NovaStrankaModal({
           style={fldStyle}
         />
       </FormField>
+
+      <FormField label="Naročnik">
+
+        
+  {/* DEBUG */}
+  <div style={{ fontSize: 12, color: "#999", marginBottom: 6 }}>
+    Št. naročnikov: {safeNarocniki.length}
+  </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <div style={{ flex: 1 }}>
+            <SearchSelect
+              items={safeNarocniki}
+              value={form.narocnik_id}
+              onChange={(v) => set("narocnik_id", v)}
+              placeholder="Izberi naročnika..."
+            />
+          </div>
+
+          {form.narocnik_id && (
+            <button
+              type="button"
+              onClick={() => set("narocnik_id", "")}
+              style={{
+                padding: "10px 12px",
+                borderRadius: 8,
+                border: "1px solid #e5e7eb",
+                background: "#fff",
+                color: "#dc2626",
+                cursor: "pointer",
+                fontSize: 13,
+                fontWeight: 600,
+                whiteSpace: "nowrap",
+              }}
+            >
+              Odstrani
+            </button>
+          )}
+        </div>
+      </FormField>
+
       <FormField label="Logotip">
         <LogoUploadField onUploaded={(id) => setLogoId(id)} />
       </FormField>
+
       <FormField label="Storitev">
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
           {storitveOpcije.map((s) => (
@@ -315,8 +449,12 @@ export function NovaStrankaModal({
                 fontSize: 13,
                 cursor: "pointer",
                 fontWeight: 500,
-                border: `1.5px solid ${form.storitve.includes(s.slug) ? BRAND : "#e5e7eb"}`,
-                background: form.storitve.includes(s.slug) ? `${BRAND}12` : "#fff",
+                border: `1.5px solid ${
+                  form.storitve.includes(s.slug) ? BRAND : "#e5e7eb"
+                }`,
+                background: form.storitve.includes(s.slug)
+                  ? `${BRAND}12`
+                  : "#fff",
                 color: form.storitve.includes(s.slug) ? BRAND : "#555",
               }}
             >
@@ -325,6 +463,7 @@ export function NovaStrankaModal({
           ))}
         </div>
       </FormField>
+
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         <FormField label="Domena URL">
           <input
@@ -334,19 +473,26 @@ export function NovaStrankaModal({
             style={fldStyle}
           />
         </FormField>
+
         <FormField label="Potek storitev">
           <input
             type="date"
             value={
               form.potek_storitev
-                ? `${form.potek_storitev.slice(0, 4)}-${form.potek_storitev.slice(4, 6)}-${form.potek_storitev.slice(6, 8)}`
+                ? `${form.potek_storitev.slice(0, 4)}-${form.potek_storitev.slice(
+                    4,
+                    6
+                  )}-${form.potek_storitev.slice(6, 8)}`
                 : ""
             }
-            onChange={(e) => set("potek_storitev", e.target.value.replace(/-/g, ""))}
+            onChange={(e) =>
+              set("potek_storitev", e.target.value.replace(/-/g, ""))
+            }
             style={fldStyle}
           />
         </FormField>
       </div>
+
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         <FormField label="Strošek (€)">
           <input
@@ -357,6 +503,7 @@ export function NovaStrankaModal({
             style={fldStyle}
           />
         </FormField>
+
         <FormField label="Obračun">
           <select
             value={form.strosek_obracun[0]}
@@ -371,6 +518,7 @@ export function NovaStrankaModal({
           </select>
         </FormField>
       </div>
+
       <FormField label="Stanje storitve">
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div
@@ -399,11 +547,13 @@ export function NovaStrankaModal({
               }}
             />
           </div>
+
           <span style={{ fontSize: 13, color: "#555" }}>
             {form.stanje_storitve ? "Aktivna" : "Neaktivna"}
           </span>
         </div>
       </FormField>
+
       <FormField label="Opombe">
         <textarea
           value={form.opombe}
@@ -413,6 +563,7 @@ export function NovaStrankaModal({
           style={{ ...fldStyle, resize: "vertical" }}
         />
       </FormField>
+
       <ErrorMsg msg={error} />
     </ModalWrapper>
   );
@@ -438,6 +589,7 @@ export function NovNarocnikModal({
     narocnik_posta: "",
     narocnik_davcna_stevilka: "",
   });
+
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -448,16 +600,20 @@ export function NovNarocnikModal({
       setError("Naziv naročnika je obvezen");
       return;
     }
+
     setSaving(true);
     setError("");
+
     try {
       const res = await fetch("/api/narocnik/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
+
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Napaka");
+
       onSaved();
       onClose();
     } catch (e) {
@@ -487,6 +643,7 @@ export function NovNarocnikModal({
           style={fldStyle}
         />
       </FormField>
+
       <FormField label="Kontaktna oseba">
         <input
           value={form.narocnik_kontaktna_oseba}
@@ -495,6 +652,7 @@ export function NovNarocnikModal({
           style={fldStyle}
         />
       </FormField>
+
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         <FormField label="Email">
           <input
@@ -505,15 +663,19 @@ export function NovNarocnikModal({
             style={fldStyle}
           />
         </FormField>
+
         <FormField label="Telefon">
           <input
             value={form.narocnik_telefonska_stevilka}
-            onChange={(e) => set("narocnik_telefonska_stevilka", e.target.value)}
+            onChange={(e) =>
+              set("narocnik_telefonska_stevilka", e.target.value)
+            }
             placeholder="+386 41 123 456"
             style={fldStyle}
           />
         </FormField>
       </div>
+
       <FormField label="Naslov">
         <input
           value={form.narocnik_naslov}
@@ -522,6 +684,7 @@ export function NovNarocnikModal({
           style={fldStyle}
         />
       </FormField>
+
       <div style={{ display: "grid", gridTemplateColumns: "120px 1fr", gap: 12 }}>
         <FormField label="Poštna številka">
           <input
@@ -532,6 +695,7 @@ export function NovNarocnikModal({
             style={fldStyle}
           />
         </FormField>
+
         <FormField label="Pošta">
           <input
             value={form.narocnik_posta}
@@ -541,6 +705,7 @@ export function NovNarocnikModal({
           />
         </FormField>
       </div>
+
       <FormField label="Davčna številka">
         <input
           value={form.narocnik_davcna_stevilka}
@@ -549,6 +714,7 @@ export function NovNarocnikModal({
           style={fldStyle}
         />
       </FormField>
+
       <ErrorMsg msg={error} />
     </ModalWrapper>
   );
@@ -573,6 +739,7 @@ export function NovaPonudbaModal({
     veljavnost: "",
     stranka_id: "",
   });
+
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -583,8 +750,10 @@ export function NovaPonudbaModal({
       setError("Naziv ponudbe je obvezen");
       return;
     }
+
     setSaving(true);
     setError("");
+
     try {
       const res = await fetch("/api/ponudba/create", {
         method: "POST",
@@ -594,8 +763,10 @@ export function NovaPonudbaModal({
           stranka_id: form.stranka_id ? parseInt(form.stranka_id) : null,
         }),
       });
+
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Napaka");
+
       onSaved();
       onClose();
     } catch (e) {
@@ -632,6 +803,7 @@ export function NovaPonudbaModal({
           style={fldStyle}
         />
       </FormField>
+
       <FormField label="Stranka">
         <StrankaSearchSelect
           stranke={stranke}
@@ -639,6 +811,7 @@ export function NovaPonudbaModal({
           onChange={(v) => set("stranka_id", v)}
         />
       </FormField>
+
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         <FormField label="Znesek (€)">
           <input
@@ -649,6 +822,7 @@ export function NovaPonudbaModal({
             style={fldStyle}
           />
         </FormField>
+
         <FormField label="Status">
           <select
             value={form.status_ponudbe}
@@ -663,6 +837,7 @@ export function NovaPonudbaModal({
           </select>
         </FormField>
       </div>
+
       <FormField label="Veljavnost do">
         <input
           type="date"
@@ -671,6 +846,7 @@ export function NovaPonudbaModal({
           style={fldStyle}
         />
       </FormField>
+
       <ErrorMsg msg={error} />
     </ModalWrapper>
   );
