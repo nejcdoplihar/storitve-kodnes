@@ -243,7 +243,16 @@ function useOpravila(entityId?: number, entityType?: "narocnik" | "stranka") {
         });
       }
 
-      data.sort((a, b) => (b.acf?.datum_opravila || "").localeCompare(a.acf?.datum_opravila || ""));
+      data.sort((a, b) => {
+        const parseDate = (d: string) => {
+          if (!d) return 0;
+          if (/^\d{8}$/.test(d)) return parseInt(d);
+          const parts = d.split(/[\/\.]/);
+          if (parts.length === 3) return parseInt(`${parts[2]}${parts[1].padStart(2,"0")}${parts[0].padStart(2,"0")}`);
+          return 0;
+        };
+        return parseDate(b.acf?.datum_opravila || "") - parseDate(a.acf?.datum_opravila || "");
+      });
       setOpravila(data);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Napaka");

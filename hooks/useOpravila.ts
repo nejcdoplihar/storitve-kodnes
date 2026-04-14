@@ -36,7 +36,7 @@ export function useOpravila(strankaId?: number) {
     data.sort((a, b) => {
       const parseDate = (d: string) => {
         if (!d) return 0;
-        if (/^\d{8}$/.test(d)) return parseInt(d); // YYYYMMDD
+        if (/^\d{8}$/.test(d)) return parseInt(d);
         const parts = d.split(/[\/\.]/);
         if (parts.length === 3) return parseInt(`${parts[2]}${parts[1].padStart(2,"0")}${parts[0].padStart(2,"0")}`);
         return 0;
