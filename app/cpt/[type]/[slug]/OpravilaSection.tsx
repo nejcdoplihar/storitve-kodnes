@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import * as XLSX from "xlsx";
 //import { DodajOpraviloModal, OpravilaTabela } from "@/components/admin/views/OpravilaView";
 
 const BRAND = "#00a4a7";
@@ -188,6 +189,28 @@ function useAllPosts(cpt: "stranka" | "narocnik") {
 
 function useIsMobile() {
   const [isMobile, setIsMobile] = useState(false);
+  const exportXlsx = (items: Opravilo[]) => {
+    const rows = items.map((o) => {
+      const postavka = o.acf?.custom_postavka ? o.acf?.urna_postavka || 35 : 35;
+      const znesek = (o.acf?.cas_ure || 0) * postavka;
+      const placano = localPlacano[o.id] !== undefined ? localPlacano[o.id] : o.acf?.placano;
+      return {
+        Datum: fmtDate(o.acf?.datum_opravila),
+        Naslov: o.acf?.naslov_opravila || stripHtml(o.title.rendered),
+        Opis: o.acf?.opis_opravila || "",
+        Uporabnik: o.acf?.uporabnik || "",
+        "Čas (ur)": o.acf?.cas_ure || 0,
+        "Znesek (€)": znesek,
+        Status: placano ? "Plačano" : "Neplačano",
+      };
+    });
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws["!cols"] = [{ wch: 12 }, { wch: 30 }, { wch: 40 }, { wch: 14 }, { wch: 10 }, { wch: 12 }, { wch: 12 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Opravila");
+    XLSX.writeFile(wb, `opravila_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
     check();
@@ -1741,7 +1764,19 @@ function OpravilaTabela({
             <span>Neplačano: <strong style={{ color: "#dc2626" }}>{skupajNeplacano.toLocaleString("sl-SI", { minimumFractionDigits: 2 })} €</strong></span>
             {!isMobile && <><span style={{ margin: "0 8px", color: "#ddd" }}>|</span><span>Skupaj: <strong>{skupajVse.toLocaleString("sl-SI", { minimumFractionDigits: 2 })} €</strong></span></>}
           </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <button
+              onClick={() => exportXlsx(opravila)}
+              style={{ padding: "6px 12px", borderRadius: 7, border: "1px solid #e5e7eb", background: "#fff", color: "#555", fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" }}
+              title="Izvozi vsa opravila"
+            >⬇ Vsa</button>
+            {selected.size > 0 && (
+              <button
+                onClick={() => exportXlsx(opravila.filter((o) => selected.has(o.id)))}
+                style={{ padding: "6px 12px", borderRadius: 7, border: "1px solid #e5e7eb", background: "#fff", color: "#555", fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" }}
+                title="Izvozi izbrana opravila"
+              >⬇ Izbrana ({selected.size})</button>
+            )}
             <button
               onClick={onRefetch}
               style={{ border: "none", background: "transparent", cursor: "pointer", color: "#aaa", display: "flex", fontSize: 18, padding: 4 }}
