@@ -798,6 +798,10 @@ export function OpravilaTabela({
       return sum + (o.acf?.cas_ure || 0) * postavka;
     }, 0);
 
+  // Loči initial load (skeleton) od refetch-a (subtilen .ka-refetching na obstoječi vsebini)
+  const isInitialLoad = loading && opravila.length === 0;
+  const isRefetching = loading && opravila.length > 0;
+
   return (
     <div>
       {editTarget && (
@@ -824,7 +828,7 @@ export function OpravilaTabela({
           >
             <div style={{ fontSize: 12, color, marginBottom: 4, opacity: color === "#dc2626" ? 1 : 0.6 }}>{label}</div>
             <div style={{ fontSize: 22, fontWeight: 700, color }}>
-              {loading ? <Skeleton height={22} width={90} /> : value}
+              {isInitialLoad ? <Skeleton height={22} width={90} /> : value}
             </div>
           </div>
         ))}
@@ -933,11 +937,11 @@ export function OpravilaTabela({
         </div>
 
         {error && <div style={{ padding: 20, background: "#fef2f2", color: "#dc2626", fontSize: 13 }}>⚠️ Napaka: {error}</div>}
-        {loading && <TableSkeleton rows={6} cols={showStranka ? 9 : 8} />}
-        {!loading && !error && filtered.length === 0 && <div style={{ padding: 40, textAlign: "center", color: "#aaa", fontSize: 14 }}>{hasFilter ? "Ni rezultatov za izbrane filtre" : "Ni opravil"}</div>}
+        {isInitialLoad && <TableSkeleton rows={6} cols={showStranka ? 9 : 8} />}
+        {!isInitialLoad && !error && filtered.length === 0 && <div style={{ padding: 40, textAlign: "center", color: "#aaa", fontSize: 14 }}>{hasFilter ? "Ni rezultatov za izbrane filtre" : "Ni opravil"}</div>}
 
-        {!loading && !error && filtered.length > 0 && (
-          <div style={{ overflowX: "auto" }}>
+        {!isInitialLoad && !error && filtered.length > 0 && (
+          <div style={{ overflowX: "auto" }} className={isRefetching ? "ka-refetching" : ""}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ background: "#fafafa" }}>

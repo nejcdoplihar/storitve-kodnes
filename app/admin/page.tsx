@@ -326,32 +326,34 @@ export default function Dashboard() {
           {showNovNarocnik && <NovNarocnikModal onClose={() => setShowNovNarocnik(false)} onSaved={handleSaved} />}
           {showNovaPonudba && <NovaPonudbaModal onClose={() => setShowNovaPonudba(false)} onSaved={handleSaved} stranke={strankeList} />}
 
-          {/* Active view */}
-          {activeView === "dashboard" ? (
-            <DashboardOverview />
-          ) : activeView === "statistika" ? (
-            <StatistikaView />
-          ) : activeView === "finance" ? (
-            <FinanceView />
-          ) : activeView === "opravila" ? (
-            <OpravilaView />
-          ) : activeView === "profil" ? (
-            <ProfilView />
-          ) : (
-            <DataTable
-              key={dataTableKey}
-              cptSlug={activeView}
-              onAdd={
-                activeView === "stranka"
-                  ? () => setShowNovaStranka(true)
-                  : activeView === "narocnik"
-                  ? () => setShowNovNarocnik(true)
-                  : activeView === "ponudba"
-                  ? () => setShowNovaPonudba(true)
-                  : undefined
-              }
-            />
-          )}
+          {/* Active view — key={activeView} sproži .ka-fade-in pri vsaki menjavi */}
+          <div key={activeView} className="ka-fade-in">
+            {activeView === "dashboard" ? (
+              <DashboardOverview />
+            ) : activeView === "statistika" ? (
+              <StatistikaView />
+            ) : activeView === "finance" ? (
+              <FinanceView />
+            ) : activeView === "opravila" ? (
+              <OpravilaView />
+            ) : activeView === "profil" ? (
+              <ProfilView />
+            ) : (
+              <DataTable
+                key={dataTableKey}
+                cptSlug={activeView}
+                onAdd={
+                  activeView === "stranka"
+                    ? () => setShowNovaStranka(true)
+                    : activeView === "narocnik"
+                    ? () => setShowNovNarocnik(true)
+                    : activeView === "ponudba"
+                    ? () => setShowNovaPonudba(true)
+                    : undefined
+                }
+              />
+            )}
+          </div>
         </div>
       </main>
     </div>
