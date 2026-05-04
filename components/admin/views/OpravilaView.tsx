@@ -57,10 +57,14 @@ function StrankaSearchSelect({
   stranke,
   value,
   onChange,
+  placeholder = "Iskanje stranke...",
+  compactPadding = false,
 }: {
   stranke: Post[];
   value: string;
   onChange: (value: string) => void;
+  placeholder?: string;
+  compactPadding?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -88,6 +92,7 @@ function StrankaSearchSelect({
   };
 
   const selectedStranka = stranke.find((s) => String(s.id) === value);
+  const selectedTitle = selectedStranka?.title.rendered.replace(/<[^>]*>/g, "") || "";
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     const sorted = [...stranke].sort((a, b) =>
@@ -101,20 +106,61 @@ function StrankaSearchSelect({
     });
   }, [stranke, query]);
 
+  // Skupna višina inputa (prilagojena za uporabo v filter baru — kompaktneje)
+  const inputBoxStyle: React.CSSProperties = compactPadding
+    ? { ...inputStyle, padding: "8px 12px", fontSize: 13 }
+    : inputStyle;
+
+  const clearValue = () => {
+    onChange("");
+    setQuery("");
+  };
+
   return (
     <div ref={wrapRef} style={{ position: "relative" }}>
       <input
         ref={inputRef}
-        value={open ? query : selectedStranka?.title.rendered || ""}
+        value={open ? query : selectedTitle}
         onFocus={openDropdown}
         onChange={(e) => {
           setQuery(e.target.value);
           if (!open) openDropdown();
           if (value) onChange("");
         }}
-        placeholder="Iskanje stranke..."
-        style={inputStyle}
+        placeholder={placeholder}
+        style={{ ...inputBoxStyle, paddingRight: value && !open ? 30 : inputBoxStyle.padding === "8px 12px" ? 12 : 12 }}
       />
+      {value && !open && (
+        <button
+          type="button"
+          onMouseDown={(e) => { e.preventDefault(); clearValue(); }}
+          aria-label="Počisti izbiro"
+          title="Počisti"
+          style={{
+            position: "absolute",
+            right: 6,
+            top: "50%",
+            transform: "translateY(-50%)",
+            width: 20,
+            height: 20,
+            borderRadius: 10,
+            border: "none",
+            background: "#e5e7eb",
+            color: "#6b7280",
+            cursor: "pointer",
+            fontSize: 14,
+            lineHeight: 1,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 0,
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = "#d1d5db"; e.currentTarget.style.color = "#111"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = "#e5e7eb"; e.currentTarget.style.color = "#6b7280"; }}
+        >
+          ×
+        </button>
+      )}
       {open && (
         <div
           style={{
@@ -779,52 +825,77 @@ export function OpravilaTabela({
       <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #f0f0f0", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", overflow: "hidden" }}>
         {/* Filter bar */}
         {showStranka && (stranke.length > 0 || narocniki.length > 0) && (
-          <div style={{ padding: "12px 20px", borderBottom: "1px solid #f5f5f5", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", background: "#fafafa" }}>
-            {stranke.length > 0 && (
-              <select
+          <div
+            style={{
+              padding: "14px 20px",
+              borderBottom: "1px solid #f0f0f0",
+              background: "#fafafa",
+              display: "grid",
+              gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr) minmax(0, 200px) auto",
+              gap: 10,
+              alignItems: "center",
+            }}
+          >
+            {stranke.length > 0 ? (
+              <StrankaSearchSelect
+                stranke={stranke}
                 value={filterStranka}
-                onChange={(e) => { setFilterStranka(e.target.value); setSelected(new Set()); }}
-                style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #e5e7eb", fontSize: 13, color: filterStranka ? "#111" : "#888", background: "#fff", cursor: "pointer" }}
-              >
-                <option value="">Vse stranke</option>
-                {stranke.map((s) => (
-                  <option key={s.id} value={String(s.id)}>
-                    {s.title.rendered.replace(/<[^>]*>/g, "")}
-                  </option>
-                ))}
-              </select>
-            )}
-            {narocniki.length > 0 && (
-              <select
+                onChange={(v) => { setFilterStranka(v); setSelected(new Set()); }}
+                placeholder="Vse stranke (iskanje...)"
+                compactPadding
+              />
+            ) : <div />}
+            {narocniki.length > 0 ? (
+              <StrankaSearchSelect
+                stranke={narocniki}
                 value={filterNarocnik}
-                onChange={(e) => { setFilterNarocnik(e.target.value); setSelected(new Set()); }}
-                style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #e5e7eb", fontSize: 13, color: filterNarocnik ? "#111" : "#888", background: "#fff", cursor: "pointer" }}
-              >
-                <option value="">Vsi naročniki</option>
-                {narocniki.map((n) => (
-                  <option key={n.id} value={String(n.id)}>
-                    {n.title.rendered.replace(/<[^>]*>/g, "")}
-                  </option>
-                ))}
-              </select>
-            )}
+                onChange={(v) => { setFilterNarocnik(v); setSelected(new Set()); }}
+                placeholder="Vsi naročniki (iskanje...)"
+                compactPadding
+              />
+            ) : <div />}
             <select
               value={filterPlacano}
               onChange={(e) => { setFilterPlacano(e.target.value as "" | "placano" | "neplacano"); setSelected(new Set()); }}
-              style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #e5e7eb", fontSize: 13, color: filterPlacano ? "#111" : "#888", background: "#fff", cursor: "pointer" }}
+              style={{
+                padding: "8px 12px",
+                borderRadius: 10,
+                border: "1px solid #e5e7eb",
+                fontSize: 13,
+                color: filterPlacano ? "#111" : "#888",
+                background: "#fff",
+                cursor: "pointer",
+                outline: "none",
+                boxSizing: "border-box",
+                width: "100%",
+                appearance: "none",
+                backgroundImage: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2'><polyline points='6 9 12 15 18 9'/></svg>\")",
+                backgroundRepeat: "no-repeat",
+                backgroundPosition: "right 10px center",
+                paddingRight: 28,
+              }}
             >
               <option value="">Vse (plačano/neplačano)</option>
               <option value="placano">✓ Samo plačano</option>
               <option value="neplacano">✗ Samo neplačano</option>
             </select>
-            {hasFilter && (
-              <button
-                onClick={() => { setFilterStranka(""); setFilterNarocnik(""); setFilterPlacano(""); setSelected(new Set()); }}
-                style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #e5e7eb", background: "#fff", fontSize: 12, color: "#888", cursor: "pointer" }}
-              >
-                × Počisti filtre
-              </button>
-            )}
+            <button
+              onClick={() => { setFilterStranka(""); setFilterNarocnik(""); setFilterPlacano(""); setSelected(new Set()); }}
+              disabled={!hasFilter}
+              style={{
+                padding: "8px 14px",
+                borderRadius: 10,
+                border: "1px solid #e5e7eb",
+                background: hasFilter ? "#fff" : "#f9fafb",
+                fontSize: 12,
+                fontWeight: 500,
+                color: hasFilter ? "#374151" : "#d1d5db",
+                cursor: hasFilter ? "pointer" : "default",
+                whiteSpace: "nowrap",
+              }}
+            >
+              × Počisti filtre
+            </button>
           </div>
         )}
         {/* Toolbar */}
