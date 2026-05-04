@@ -8,7 +8,9 @@ import { useStranke, useNarocniki } from "@/hooks/useWPData";
 import { useCurrentUser } from "@/hooks/useAuth";
 import { fmtDate } from "@/lib/helpers";
 import { BRAND } from "@/lib/constants";
+import { staggerDelay, STAGGER_CARDS } from "@/lib/animations";
 import { icons } from "../Icons";
+import { TableSkeleton, Skeleton } from "../Skeletons";
 import type { Opravilo } from "@/types/admin";
 import type { Post } from "@/types/admin";
 import { getTitleById } from "@/lib/helpers";
@@ -814,10 +816,16 @@ export function OpravilaTabela({
           { label: "Skupaj opravil", value: filtered.length + (hasFilter ? ` / ${opravila.length}` : ""), color: "#111", border: "#f0f0f0" },
           { label: "Skupaj vrednost", value: `${skupajZnesek.toLocaleString("sl-SI", { minimumFractionDigits: 2 })} €`, color: "#111", border: "#f0f0f0" },
           { label: "Neplačano", value: `${neplačanoZnesek.toLocaleString("sl-SI", { minimumFractionDigits: 2 })} €`, color: "#dc2626", border: "#fee2e2" },
-        ].map(({ label, value, color, border }) => (
-          <div key={label} style={{ background: "#fff", borderRadius: 12, padding: "14px 20px", border: `1px solid ${border}`, flex: 1 }}>
+        ].map(({ label, value, color, border }, i) => (
+          <div
+            key={label}
+            className="ka-fade-up"
+            style={{ background: "#fff", borderRadius: 12, padding: "14px 20px", border: `1px solid ${border}`, flex: 1, animationDelay: staggerDelay(i, 0, STAGGER_CARDS) }}
+          >
             <div style={{ fontSize: 12, color, marginBottom: 4, opacity: color === "#dc2626" ? 1 : 0.6 }}>{label}</div>
-            <div style={{ fontSize: 22, fontWeight: 700, color }}>{value}</div>
+            <div style={{ fontSize: 22, fontWeight: 700, color }}>
+              {loading ? <Skeleton height={22} width={90} /> : value}
+            </div>
           </div>
         ))}
       </div>
@@ -925,7 +933,7 @@ export function OpravilaTabela({
         </div>
 
         {error && <div style={{ padding: 20, background: "#fef2f2", color: "#dc2626", fontSize: 13 }}>⚠️ Napaka: {error}</div>}
-        {loading && <div style={{ padding: 40, textAlign: "center", color: "#aaa", fontSize: 14 }}>Nalaganje opravil...</div>}
+        {loading && <TableSkeleton rows={6} cols={showStranka ? 9 : 8} />}
         {!loading && !error && filtered.length === 0 && <div style={{ padding: 40, textAlign: "center", color: "#aaa", fontSize: 14 }}>{hasFilter ? "Ni rezultatov za izbrane filtre" : "Ni opravil"}</div>}
 
         {!loading && !error && filtered.length > 0 && (

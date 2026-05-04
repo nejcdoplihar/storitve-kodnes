@@ -4,6 +4,7 @@
 
 import { useState, useEffect } from "react";
 import { BRAND } from "@/lib/constants";
+import { Skeleton, CardSkeleton } from "../Skeletons";
 
 const profileInputStyle: React.CSSProperties = {
   width: "100%",
@@ -118,7 +119,66 @@ export function ProfilView() {
   }
 
   if (loading) {
-    return <div style={{ padding: 20 }}>Nalaganje profila...</div>;
+    return (
+      <div style={{ maxWidth: 1100 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", gap: 20 }}>
+          {/* Levi profil skeleton */}
+          <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #f0f0f0", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", padding: 24, textAlign: "center" }}>
+            <div style={{ margin: "0 auto 16px" }}>
+              <Skeleton variant="circle" width={96} height={96} style={{ margin: "0 auto" }} />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "center" }}>
+              <Skeleton height={18} width={140} />
+              <Skeleton height={12} width={100} />
+              <Skeleton height={12} width={160} />
+            </div>
+            <div style={{ marginTop: 16 }}>
+              <Skeleton height={32} width="100%" borderRadius={8} />
+            </div>
+          </div>
+
+          {/* Desni del skeleton */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            <CardSkeleton>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                <div style={{ gridColumn: "1 / -1", display: "flex", flexDirection: "column", gap: 6 }}>
+                  <Skeleton height={10} width={100} />
+                  <Skeleton height={38} borderRadius={10} />
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <Skeleton height={10} width={60} />
+                  <Skeleton height={38} borderRadius={10} />
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <Skeleton height={10} width={80} />
+                  <Skeleton height={38} borderRadius={10} />
+                </div>
+                <div style={{ gridColumn: "1 / -1", display: "flex", flexDirection: "column", gap: 6 }}>
+                  <Skeleton height={10} width={140} />
+                  <Skeleton height={38} borderRadius={10} />
+                </div>
+              </div>
+            </CardSkeleton>
+            <CardSkeleton>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                <div style={{ gridColumn: "1 / -1", display: "flex", flexDirection: "column", gap: 6 }}>
+                  <Skeleton height={10} width={120} />
+                  <Skeleton height={38} borderRadius={10} />
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <Skeleton height={10} width={80} />
+                  <Skeleton height={38} borderRadius={10} />
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <Skeleton height={10} width={130} />
+                  <Skeleton height={38} borderRadius={10} />
+                </div>
+              </div>
+            </CardSkeleton>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (

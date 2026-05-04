@@ -1,5 +1,67 @@
 @import "tailwindcss";
 
+/* ============================================================
+   ANIMACIJE — skupne keyframe definicije
+   ============================================================ */
+@keyframes ka-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@keyframes ka-fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ka-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes ka-pulse-dim {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.55; }
+}
+
+/* ============================================================
+   UTILITY CLASS-i — uporabni za React komponente
+   ============================================================ */
+.ka-skeleton {
+  background: linear-gradient(90deg, #eef0f2 25%, #f6f8fa 50%, #eef0f2 75%);
+  background-size: 200% 100%;
+  animation: ka-shimmer 1.4s ease infinite;
+  border-radius: 8px;
+  display: block;
+}
+
+.ka-fade-up {
+  animation: ka-fade-up 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.ka-fade-in {
+  animation: ka-fade-in 0.2s ease-out both;
+}
+
+.ka-pulse-dim {
+  animation: ka-pulse-dim 1.6s ease-in-out infinite;
+}
+
+/* Subtilni indikator za refetch (opacity dim na obstoječi vsebini) */
+.ka-refetching {
+  opacity: 0.55;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ka-skeleton,
+  .ka-fade-up,
+  .ka-fade-in,
+  .ka-pulse-dim {
+    animation: none !important;
+  }
+}
+
 /* WordPress vsebina */
 .wp-content {
   color: #1f2937;

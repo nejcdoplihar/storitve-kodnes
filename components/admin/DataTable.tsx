@@ -9,6 +9,7 @@ import { formatDate, getAcfPreview, formatACFDate, getStoritveLabel } from "@/li
 import { BRAND } from "@/lib/constants";
 import { icons } from "./Icons";
 import { StatusBadge, ConfirmDeleteDialog } from "./UI";
+import { TableSkeleton, ListSkeleton } from "./Skeletons";
 
 const DELETABLE = ["narocnik", "stranka", "ponudba"];
 const EDITABLE = ["narocnik", "stranka"];
@@ -553,7 +554,11 @@ export function DataTable({ cptSlug, onAdd }: { cptSlug: string; onAdd?: () => v
         )}
 
         {effectiveLoading && (
-          <div style={{ padding: 40, textAlign: "center", color: "#aaa", fontSize: 14 }}>Nalaganje iz WordPressa...</div>
+          isMobile ? (
+            <ListSkeleton items={6} avatar={false} />
+          ) : (
+            <TableSkeleton rows={6} cols={(CPT_COLUMNS[cptSlug]?.length || 0) + 2} />
+          )
         )}
 
         {!effectiveLoading && !effectiveError && filtered.length > 0 && (

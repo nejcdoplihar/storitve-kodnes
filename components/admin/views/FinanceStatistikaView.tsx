@@ -2,71 +2,14 @@
 // components/admin/views/FinanceStatistikaView.tsx
 // Finančni pregled in statistika strank
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useStranke, useNarocniki } from "@/hooks/useWPData";
+import { useMountedAnim } from "@/hooks/useMountedAnim";
 import { BRAND, STORITVE_LABELS, STORITVE_COLORS, MESECI_SHORT } from "@/lib/constants";
 import { getAnnualCost } from "@/lib/helpers";
+import { EASE_OUT, DUR_LONG, STAGGER, STAGGER_CARDS, STAGGER_CHART, staggerDelay } from "@/lib/animations";
+import { CardSkeleton, BarChartSkeleton, DonutChartSkeleton, ListSkeleton, Skeleton } from "@/components/admin/Skeletons";
 import type { Stranka } from "@/types/admin";
-
-// ============================================================
-// ANIMACIJA HOOK — postavi mounted=true v naslednjem framu
-// ============================================================
-function useMountedAnim(delay = 50) {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    const t = setTimeout(() => setMounted(true), delay);
-    return () => clearTimeout(t);
-  }, [delay]);
-  return mounted;
-}
-
-// ============================================================
-// SKELETON
-// ============================================================
-function Skeleton({
-  height = 14,
-  width = "100%",
-  borderRadius = 8,
-  style,
-}: {
-  height?: number | string;
-  width?: number | string;
-  borderRadius?: number | string;
-  style?: React.CSSProperties;
-}) {
-  return (
-    <div
-      style={{
-        height,
-        width,
-        borderRadius,
-        background: "linear-gradient(90deg, #eef0f2 25%, #f6f8fa 50%, #eef0f2 75%)",
-        backgroundSize: "200% 100%",
-        animation: "statShimmer 1.4s ease infinite",
-        ...style,
-      }}
-    />
-  );
-}
-
-// ============================================================
-// CSS animacije (vbrizgane enkrat)
-// ============================================================
-const STAT_ANIMATIONS = `
-@keyframes statShimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
-@keyframes statFadeUp {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-.stat-fade { animation: statFadeUp 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
-`;
-
-function AnimStyles() {
-  return <style dangerouslySetInnerHTML={{ __html: STAT_ANIMATIONS }} />;
-}
 
 // ============================================================
 // SVG GRAFIKONI
@@ -102,7 +45,7 @@ function BarChart({ data, color = BRAND, highlightIndex }: { data: number[]; col
                 transformBox: "fill-box",
                 transformOrigin: "bottom",
                 transform: mounted ? "scaleY(1)" : "scaleY(0)",
-                transition: `transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) ${i * 50}ms`,
+                transition: `transform ${DUR_LONG}ms ${EASE_OUT} ${i * STAGGER}ms`,
               }}
             />
             {v > 0 && (
@@ -115,7 +58,7 @@ function BarChart({ data, color = BRAND, highlightIndex }: { data: number[]; col
                 fontWeight={600}
                 style={{
                   opacity: mounted ? 1 : 0,
-                  transition: `opacity 0.4s ease ${i * 50 + 250}ms`,
+                  transition: `opacity 0.4s ease ${i * STAGGER + 250}ms`,
                 }}
               >
                 {v}
@@ -225,7 +168,7 @@ function DonutChart({
               strokeDashoffset={mounted ? 0 : dash}
               transform={`rotate(${rotation}, ${cx}, ${cy})`}
               style={{
-                transition: `stroke-dashoffset 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) ${i * 90}ms`,
+                transition: `stroke-dashoffset 0.8s ${EASE_OUT} ${i * STAGGER_CHART}ms`,
               }}
             />
           );
@@ -239,7 +182,7 @@ function DonutChart({
       </svg>
       <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
         {visibleSegments.map((seg, i) => (
-          <div key={i} className="stat-fade" style={{ display: "flex", alignItems: "center", gap: 10, animationDelay: `${200 + i * 80}ms` }}>
+          <div key={i} className="ka-fade-up" style={{ display: "flex", alignItems: "center", gap: 10, animationDelay: staggerDelay(i, 200, 80) }}>
             <div
               style={{
                 width: 10,
@@ -295,7 +238,7 @@ function Top5StrankList({ stranke }: { stranke: Stranka[] }) {
         <a
           key={s.id}
           href={`/cpt/stranka/${s.slug}`}
-          className="stat-fade"
+          className="ka-fade-up"
           style={{
             display: "flex",
             alignItems: "center",
@@ -304,7 +247,7 @@ function Top5StrankList({ stranke }: { stranke: Stranka[] }) {
             borderBottom: i < top5.length - 1 ? "1px solid #f3f4f6" : "none",
             textDecoration: "none",
             color: "inherit",
-            animationDelay: `${250 + i * 70}ms`,
+            animationDelay: staggerDelay(i, 250, STAGGER_CARDS),
             borderRadius: 6,
             transition: "background 0.15s ease",
           }}
@@ -349,7 +292,7 @@ function Top5StrankList({ stranke }: { stranke: Stranka[] }) {
                   background: BRAND,
                   borderRadius: 3,
                   width: mounted ? `${(s.annual / max) * 100}%` : "0%",
-                  transition: `width 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) ${i * 90 + 100}ms`,
+                  transition: `width 0.9s ${EASE_OUT} ${i * STAGGER_CHART + 100}ms`,
                 }}
               />
             </div>
@@ -372,7 +315,7 @@ function Top5StrankList({ stranke }: { stranke: Stranka[] }) {
 function Card({ children, padding = "20px 24px", delay = 0 }: { children: React.ReactNode; padding?: string; delay?: number }) {
   return (
     <div
-      className="stat-fade"
+      className="ka-fade-up"
       style={{
         background: "#fff",
         borderRadius: 14,
@@ -435,33 +378,36 @@ export function StatistikaView() {
 
   const totalStoritev = Object.values(serviceStranke).reduce((a, b) => a + b, 0);
 
-  // ── Skeleton state ──
+  // ── Skeleton state — uporablja skupne primitive iz components/admin/Skeletons ──
   if (isLoading) {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-        <AnimStyles />
-        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 2fr) minmax(0, 1fr)", gap: 16 }}>
           <Skeleton height={130} borderRadius={14} />
           <Skeleton height={130} borderRadius={14} />
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-          <Skeleton height={220} borderRadius={14} />
-          <Skeleton height={220} borderRadius={14} />
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 20 }}>
+          <CardSkeleton>
+            <BarChartSkeleton />
+          </CardSkeleton>
+          <CardSkeleton>
+            <DonutChartSkeleton />
+          </CardSkeleton>
         </div>
-        <Skeleton height={360} borderRadius={14} />
+        <CardSkeleton>
+          <ListSkeleton items={5} avatar />
+        </CardSkeleton>
       </div>
     );
   }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <AnimStyles />
-
       {/* ── Hero: Aktivnih storitev + Naročniki ── */}
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 2fr) minmax(0, 1fr)", gap: 16 }}>
         {/* Aktivne storitve — gradient hero */}
         <div
-          className="stat-fade"
+          className="ka-fade-up"
           style={{
             background: `linear-gradient(135deg, ${BRAND}, #007a7d)`,
             borderRadius: 14,
@@ -504,7 +450,7 @@ export function StatistikaView() {
 
         {/* Naročniki */}
         <div
-          className="stat-fade"
+          className="ka-fade-up"
           style={{
             background: "#fff",
             borderRadius: 14,
@@ -514,7 +460,7 @@ export function StatistikaView() {
             display: "flex",
             flexDirection: "column",
             justifyContent: "space-between",
-            animationDelay: "70ms",
+            animationDelay: staggerDelay(1, 0, STAGGER_CARDS),
           }}
         >
           <div>
