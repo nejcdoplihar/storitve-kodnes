@@ -5,6 +5,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useWPData, useStranke } from "@/hooks/useWPData";
+import { useOpravila } from "@/hooks/useOpravila";
 import { getDaysLeft, isThisMonth, isPrevMonth, isNextMonth, formatACFDate, getStoritveLabel, getAnnualCost } from "@/lib/helpers";
 import { BRAND, WP_ADMIN_URL } from "@/lib/constants";
 import { StatCard } from "../UI";
@@ -373,15 +374,37 @@ function AkcijaBadge({ action }: { action: ActivityEntry["action"] }) {
 // ============================================================
 export function DashboardOverview() {
   const narocniki = useWPData("narocnik");
-  const ponudbe = useWPData("ponudba");
-  const stranke = useWPData("stranka");
   const { stranke: strankeDetailed, loading: strankeLoading } = useStranke();
+  const { opravila, loading: opravilaLoading } = useOpravila();
   const isMobile = useIsMobile();
 
   // Samo stranke z aktivno storitvijo (stanje_storitve === true)
   const aktivneStranke = useMemo(() => {
     return strankeDetailed.filter((s) => s.acf?.stanje_storitve === true);
   }, [strankeDetailed]);
+
+  // Vsota neplačanih opravil
+  const neplacanoZnesek = useMemo(() => {
+    return opravila.reduce((sum, o) => {
+      const v = o.acf?.placano;
+      const placano = typeof v === "boolean" ? v : (v === "1" || v === 1 || v === "true");
+      if (placano) return sum;
+      const postavka = o.acf?.custom_postavka ? (Number(o.acf?.urna_postavka) || 35) : 35;
+      const cas = Number(o.acf?.cas_ure) || 0;
+      return sum + cas * postavka;
+    }, 0);
+  }, [opravila]);
+
+  // Letni promet aktivnih strank (preračun glede na obračunski cikel)
+  const letniPromet = useMemo(() => {
+    return aktivneStranke.reduce((sum, s) => {
+      const cost = Number(s.acf?.strosek) || 0;
+      const billing = s.acf?.strosek_obracun;
+      return sum + getAnnualCost(cost, billing);
+    }, 0);
+  }, [aktivneStranke]);
+
+  const fmtMoney = (n: number) => `${n.toLocaleString("sl-SI", { minimumFractionDigits: 2 })} €`;
 
   const [activityLog, setActivityLog] = useState<ActivityEntry[]>([]);
   const [activityLoading, setActivityLoading] = useState(true);
@@ -405,10 +428,11 @@ export function DashboardOverview() {
   return (
     <div>
       {/* Stat cards */}
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)", gap: isMobile ? 8 : 16, marginBottom: isMobile ? 16 : 28 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, 1fr)", gap: isMobile ? 8 : 16, marginBottom: isMobile ? 16 : 28 }}>
+        <StatCard label="Aktivnih storitev" value={aktivneStranke.length} loading={strankeLoading} color="#f59e0b" icon={icons.building} compact={isMobile} />
         <StatCard label="Naročniki" value={narocniki.total} loading={narocniki.loading} color="#00a4a7" icon={icons.users} compact={isMobile} />
-        <StatCard label="Ponudbe" value={ponudbe.total} loading={ponudbe.loading} color="#10b981" icon={icons.file} compact={isMobile} />
-        <StatCard label="Aktivne stranke" value={aktivneStranke.length} loading={strankeLoading} color="#f59e0b" icon={icons.building} compact={isMobile} />
+        <StatCard label="Neplačana opravila" value={fmtMoney(neplacanoZnesek)} loading={opravilaLoading} color="#dc2626" icon={icons.task} compact={isMobile} />
+        <StatCard label="Letni promet" value={fmtMoney(letniPromet)} loading={strankeLoading} color="#10b981" icon={icons.euro} compact={isMobile} />
       </div>
 
       {/* Stranke — prejšnji mesec (potekle, niso bile podaljšane) */}

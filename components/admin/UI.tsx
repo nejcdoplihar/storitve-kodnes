@@ -280,12 +280,15 @@ export function StatCard({
   label, value, loading, color, icon, compact = false,
 }: {
   label: string;
-  value: number;
+  value: string | number;
   loading: boolean;
   color: string;
   icon: ReactNode;
   compact?: boolean;
 }) {
+  // Pri zneskih (string) zmanjšamo pisavo za boljši izgled
+  const isCurrency = typeof value === "string";
+
   if (compact) {
     return (
       <div style={{
@@ -300,9 +303,9 @@ export function StatCard({
         }}>
           {icon}
         </div>
-        <div>
+        <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 11, color: "#888", fontWeight: 500, marginBottom: 1 }}>{label}</div>
-          <div style={{ fontSize: 20, fontWeight: 700, color: "#111", lineHeight: 1 }}>
+          <div style={{ fontSize: isCurrency ? 17 : 20, fontWeight: 700, color: "#111", lineHeight: 1, whiteSpace: "nowrap" }}>
             {loading ? <span style={{ display: "inline-block", width: 28, height: 20, background: "#f0f0f0", borderRadius: 4 }} /> : value}
           </div>
         </div>
@@ -315,10 +318,10 @@ export function StatCard({
       background: "#fff", borderRadius: 14, padding: "22px 24px",
       border: "1px solid #f0f0f0", boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
     }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+        <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 13, color: "#888", fontWeight: 500, marginBottom: 8 }}>{label}</div>
-          <div style={{ fontSize: 32, fontWeight: 700, color: "#111", lineHeight: 1 }}>
+          <div style={{ fontSize: isCurrency ? 26 : 32, fontWeight: 700, color: "#111", lineHeight: 1, whiteSpace: "nowrap" }}>
             {loading ? <span style={{ display: "inline-block", width: 40, height: 32, background: "#f0f0f0", borderRadius: 6 }} /> : value}
           </div>
           <div style={{ fontSize: 12, color: "#22c55e", marginTop: 8, display: "flex", alignItems: "center", gap: 4 }}>
