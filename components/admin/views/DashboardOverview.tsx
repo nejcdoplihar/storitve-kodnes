@@ -5,7 +5,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useWPData, useStranke } from "@/hooks/useWPData";
-import { getDaysLeft, isThisMonth, formatACFDate, getStoritveLabel, getAnnualCost } from "@/lib/helpers";
+import { getDaysLeft, isThisMonth, isPrevMonth, isNextMonth, formatACFDate, getStoritveLabel, getAnnualCost } from "@/lib/helpers";
 import { BRAND, WP_ADMIN_URL } from "@/lib/constants";
 import { StatCard } from "../UI";
 import { icons } from "../Icons";
@@ -79,9 +79,12 @@ function PodaljsajButton({ strankaId, currentDate, title, onSuccess }: {
 }
 
 // ============================================================
-// STRANKE TA MESEC — TABELA (desktop) + KARTICE (mobilni)
+// STRANKE PO MESECU — TABELA (desktop) + KARTICE (mobilni)
+// offset: -1 = prejšnji mesec (potekle, niso podaljšane)
+//          0 = tekoči mesec
+//         +1 = naslednji mesec (prihajajoče)
 // ============================================================
-function StrankeTekoMesec({ stranke: initialStranke, loading }: { stranke: Stranka[]; loading: boolean }) {
+function StrankeMesec({ stranke: initialStranke, loading, offset }: { stranke: Stranka[]; loading: boolean; offset: -1 | 0 | 1 }) {
   const [overrides, setOverrides] = useState<Record<number, string>>({});
   const isMobile = useIsMobile();
 
@@ -90,22 +93,52 @@ function StrankeTekoMesec({ stranke: initialStranke, loading }: { stranke: Stran
   };
 
   const now = new Date();
-  const mesecIme = now.toLocaleDateString("sl-SI", { month: "long", year: "numeric" });
+  const targetDate = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+  const mesecIme = targetDate.toLocaleDateString("sl-SI", { month: "long", year: "numeric" });
   const mesecNaslov = mesecIme.charAt(0).toUpperCase() + mesecIme.slice(1);
+
+  // Naslov + podnaslov + barvni akcent + indikator v glavi
+  const cfg = offset === -1
+    ? {
+        podnaslov: "Aktivne stranke ki niso bile podaljšane v prejšnjem mesecu",
+        emptyText: "Ni nepodaljšanih strank iz prejšnjega meseca 🎉",
+        accent: "#dc2626",
+        indikator: { label: "POTEKLO", bg: "#fee2e2", color: "#dc2626" },
+      }
+    : offset === 0
+    ? {
+        podnaslov: "Stranke katerim poteče storitev ta mesec",
+        emptyText: "Ni strank s potekom ta mesec 🎉",
+        accent: "#555",
+        indikator: null as null | { label: string; bg: string; color: string },
+      }
+    : {
+        podnaslov: "Stranke katerim poteče storitev naslednji mesec",
+        emptyText: "Ni strank s potekom naslednji mesec",
+        accent: "#0ea5e9",
+        indikator: { label: "PRIHAJA", bg: "#e0f2fe", color: "#0369a1" },
+      };
+
+  const monthFilter = (d: string) => {
+    if (offset === -1) return isPrevMonth(d);
+    if (offset === 0) return isThisMonth(d);
+    return isNextMonth(d);
+  };
 
   const thisMonth = useMemo(() => {
     return initialStranke
       .filter((s) => {
         if (!s.acf?.stanje_storitve) return false; // samo aktivne
         const date = overrides[s.id] || s.acf?.potek_storitev;
-        return date && isThisMonth(date);
+        return date && monthFilter(date);
       })
       .sort((a, b) => {
         const da = overrides[a.id] || a.acf?.potek_storitev || "";
         const db = overrides[b.id] || b.acf?.potek_storitev || "";
         return da.localeCompare(db);
       });
-  }, [initialStranke, overrides]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialStranke, overrides, offset]);
 
   const skupajZnesek = useMemo(() => {
     return thisMonth.reduce((sum, s) => {
@@ -115,9 +148,16 @@ function StrankeTekoMesec({ stranke: initialStranke, loading }: { stranke: Stran
     }, 0);
   }, [thisMonth]);
 
+  // Prazne kartice za prejšnji/naslednji mesec skrijemo (ne zasedajo prostora)
+  if (offset !== 0 && !loading && thisMonth.length === 0) {
+    return null;
+  }
+
   const billingMap: Record<string, string> = { letno: "letno", mesecno: "mesečno", trimesecno: "trimesečno", polletno: "polletno" };
 
   if (loading) {
+    // Med nalaganjem prikažemo skeleton samo za tekoči mesec, ostala dva sta skrita
+    if (offset !== 0) return null;
     return (
       <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #f0f0f0", padding: 24, marginBottom: 20 }}>
         <div style={{ color: "#aaa", fontSize: 14 }}>Nalaganje strank...</div>
@@ -130,16 +170,21 @@ function StrankeTekoMesec({ stranke: initialStranke, loading }: { stranke: Stran
       {/* Header */}
       <div style={{ padding: isMobile ? "14px 16px" : "18px 24px", borderBottom: "1px solid #f0f0f0", display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
         <div>
-          <div style={{ fontWeight: 700, fontSize: 15, color: "#111", display: "flex", alignItems: "center", gap: 8 }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2" style={{ flexShrink: 0 }}>
+          <div style={{ fontWeight: 700, fontSize: 15, color: "#111", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={cfg.accent} strokeWidth="2" style={{ flexShrink: 0 }}>
               <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
               <line x1="16" y1="2" x2="16" y2="6" />
               <line x1="8" y1="2" x2="8" y2="6" />
               <line x1="3" y1="10" x2="21" y2="10" />
             </svg>
             Stranke — {mesecNaslov}
+            {cfg.indikator && (
+              <span style={{ display: "inline-flex", padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700, background: cfg.indikator.bg, color: cfg.indikator.color, letterSpacing: 0.3 }}>
+                {cfg.indikator.label}
+              </span>
+            )}
           </div>
-          <div style={{ fontSize: 13, color: "#9ca3af", marginTop: 3 }}>Stranke katerim poteče storitev ta mesec</div>
+          <div style={{ fontSize: 13, color: "#9ca3af", marginTop: 3 }}>{cfg.podnaslov}</div>
         </div>
         {thisMonth.length > 0 && (
           <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 12 }}>
@@ -156,7 +201,7 @@ function StrankeTekoMesec({ stranke: initialStranke, loading }: { stranke: Stran
 
       {thisMonth.length === 0 ? (
         <div style={{ padding: "32px 24px", textAlign: "center", color: "#aaa", fontSize: 14 }}>
-          Ni strank s potekom ta mesec 🎉
+          {cfg.emptyText}
         </div>
       ) : isMobile ? (
         /* ── MOBILNI PRIKAZ: kompaktne kartice ── */
@@ -366,8 +411,14 @@ export function DashboardOverview() {
         <StatCard label="Aktivne stranke" value={aktivneStranke.length} loading={strankeLoading} color="#f59e0b" icon={icons.building} compact={isMobile} />
       </div>
 
+      {/* Stranke — prejšnji mesec (potekle, niso bile podaljšane) */}
+      <StrankeMesec stranke={strankeDetailed} loading={strankeLoading} offset={-1} />
+
       {/* Stranke ta mesec */}
-      <StrankeTekoMesec stranke={strankeDetailed} loading={strankeLoading} />
+      <StrankeMesec stranke={strankeDetailed} loading={strankeLoading} offset={0} />
+
+      {/* Stranke naslednji mesec */}
+      <StrankeMesec stranke={strankeDetailed} loading={strankeLoading} offset={1} />
 
       {/* Nedavna aktivnost */}
       <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #f0f0f0", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", overflow: "hidden" }}>

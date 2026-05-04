@@ -49,6 +49,22 @@ export function isThisMonth(d: string): boolean {
   return dt.getFullYear() === now.getFullYear() && dt.getMonth() === now.getMonth();
 }
 
+export function isPrevMonth(d: string): boolean {
+  const dt = parseACFDate(d);
+  if (!dt) return false;
+  const now = new Date();
+  const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  return dt.getFullYear() === prev.getFullYear() && dt.getMonth() === prev.getMonth();
+}
+
+export function isNextMonth(d: string): boolean {
+  const dt = parseACFDate(d);
+  if (!dt) return false;
+  const now = new Date();
+  const next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  return dt.getFullYear() === next.getFullYear() && dt.getMonth() === next.getMonth();
+}
+
 // Format ACF date YYYYMMDD → sl-SI
 export function fmtDate(d: string): string {
   if (!d || d.length !== 8) return d || "—";
