@@ -478,10 +478,6 @@ export function DataTable({ cptSlug, onAdd }: { cptSlug: string; onAdd?: () => v
 
   const effectiveLoading = isSearching ? allLoading : loading;
   const effectiveError = isSearching ? allError : error;
-  // Loči initial load (skeleton) od refetch-a (subtilen .ka-refetching)
-  const sourceLength = isSearching ? allPosts.length : posts.length;
-  const isInitialLoad = effectiveLoading && sourceLength === 0;
-  const isRefetching = effectiveLoading && sourceLength > 0;
 
   useEffect(() => { setPage(1); }, [cptSlug, search]);
 
@@ -557,7 +553,7 @@ export function DataTable({ cptSlug, onAdd }: { cptSlug: string; onAdd?: () => v
           <div style={{ padding: 20, background: "#fef2f2", color: "#dc2626", fontSize: 13 }}>⚠️ Napaka: {effectiveError}</div>
         )}
 
-        {isInitialLoad && (
+        {effectiveLoading && (
           isMobile ? (
             <ListSkeleton items={6} avatar={false} />
           ) : (
@@ -565,10 +561,10 @@ export function DataTable({ cptSlug, onAdd }: { cptSlug: string; onAdd?: () => v
           )
         )}
 
-        {!isInitialLoad && !effectiveError && filtered.length > 0 && (
+        {!effectiveLoading && !effectiveError && filtered.length > 0 && (
           isMobile ? (
             /* ── MOBILNI PRIKAZ: kartice ── */
-            <div className={isRefetching ? "ka-refetching" : ""}>
+            <div>
               {filtered.map((post, i) => {
                 const acf = (post.acf || {}) as Record<string, ColValue>;
                 const cols = CPT_COLUMNS[cptSlug] || [];
@@ -636,7 +632,6 @@ export function DataTable({ cptSlug, onAdd }: { cptSlug: string; onAdd?: () => v
               const cols = CPT_COLUMNS[cptSlug] || [];
               const subtitleFn = CPT_SUBTITLE[cptSlug];
               return (
-                <div className={isRefetching ? "ka-refetching" : ""}>
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
                     <tr style={{ background: "#fafafa" }}>
@@ -695,20 +690,19 @@ export function DataTable({ cptSlug, onAdd }: { cptSlug: string; onAdd?: () => v
                     })}
                   </tbody>
                 </table>
-                </div>
               );
             })()
           )
         )}
 
-        {!isInitialLoad && !effectiveError && filtered.length === 0 && (
+        {!effectiveLoading && !effectiveError && filtered.length === 0 && (
           <div style={{ padding: 40, textAlign: "center", color: "#aaa", fontSize: 14 }}>
             {search ? `Ni rezultatov za "${search}"` : "Ni zapisov"}
           </div>
         )}
 
         {/* Paginacija */}
-        {!isInitialLoad && !effectiveError && !search.trim() && totalPages > 1 && (
+        {!effectiveLoading && !effectiveError && !search.trim() && totalPages > 1 && (
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: isMobile ? "12px 14px" : "14px 20px", borderTop: "1px solid #f0f0f0", background: "#fff" }}>
             <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
               style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #e5e7eb", background: page === 1 ? "#f9fafb" : "#fff", color: page === 1 ? "#9ca3af" : "#374151", cursor: page === 1 ? "not-allowed" : "pointer", fontSize: 13, fontWeight: 500 }}>
