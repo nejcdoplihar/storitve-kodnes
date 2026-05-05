@@ -8,7 +8,7 @@ import { useMountedAnim } from "@/hooks/useMountedAnim";
 import { BRAND, STORITVE_LABELS, STORITVE_COLORS, MESECI_SHORT } from "@/lib/constants";
 import { getAnnualCost } from "@/lib/helpers";
 import { EASE_OUT, DUR_LONG, STAGGER, STAGGER_CARDS, STAGGER_CHART, staggerDelay } from "@/lib/animations";
-import { CardSkeleton, BarChartSkeleton, DonutChartSkeleton, ListSkeleton, Skeleton } from "@/components/admin/Skeletons";
+import { CardSkeleton, ListSkeleton, Skeleton } from "@/components/admin/Skeletons";
 import type { Stranka } from "@/types/admin";
 
 // ============================================================
@@ -378,7 +378,7 @@ export function StatistikaView() {
 
   const totalStoritev = Object.values(serviceStranke).reduce((a, b) => a + b, 0);
 
-  // ── Skeleton state — uporablja skupne primitive iz components/admin/Skeletons ──
+  // ── Skeleton state — uniformno z ostalimi viewi (rows-of-lines style) ──
   if (isLoading) {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
@@ -388,10 +388,10 @@ export function StatistikaView() {
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 20 }}>
           <CardSkeleton>
-            <BarChartSkeleton />
+            <ListSkeleton items={5} avatar={false} />
           </CardSkeleton>
           <CardSkeleton>
-            <DonutChartSkeleton />
+            <ListSkeleton items={5} avatar={false} />
           </CardSkeleton>
         </div>
         <CardSkeleton>
