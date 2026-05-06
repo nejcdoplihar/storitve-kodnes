@@ -11,7 +11,7 @@ import { BRAND, WP_ADMIN_URL } from "@/lib/constants";
 import { staggerDelay, STAGGER_CARDS } from "@/lib/animations";
 import { StatCard } from "../UI";
 import { icons } from "../Icons";
-import { TableSkeleton, ListSkeleton, Skeleton } from "../Skeletons";
+import { TableSkeleton, ListSkeleton, Skeleton, StatCardSkeleton } from "../Skeletons";
 import type { Stranka } from "@/types/admin";
 import type { ActivityEntry } from "@/lib/activityLog";
 
@@ -448,18 +448,24 @@ export function DashboardOverview() {
 
   return (
     <div>
-      {/* Stat cards */}
+      {/* Stat cards — swap-pattern: skeleton brez animacije, content z fade-up stagger */}
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, 1fr)", gap: isMobile ? 8 : 16, marginBottom: isMobile ? 16 : 28 }}>
-        {[
-          <StatCard key="storitve" label="Aktivnih storitev" value={aktivneStranke.length} loading={strankeLoading} color="#f59e0b" icon={icons.building} compact={isMobile} />,
-          <StatCard key="narocniki" label="Naročniki" value={narocniki.total} loading={narocniki.loading} color="#00a4a7" icon={icons.users} compact={isMobile} />,
-          <StatCard key="neplacano" label="Neplačana opravila" value={fmtMoney(neplacanoZnesek)} loading={opravilaLoading} color="#dc2626" icon={icons.task} compact={isMobile} />,
-          <StatCard key="promet" label="Letni promet" value={fmtMoney(letniPromet)} loading={strankeLoading} color="#10b981" icon={icons.euro} compact={isMobile} />,
-        ].map((card, i) => (
-          <div key={card.key} className="ka-fade-up" style={{ animationDelay: staggerDelay(i, 0, STAGGER_CARDS) }}>
-            {card}
-          </div>
-        ))}
+        {(strankeLoading || narocniki.loading || opravilaLoading) ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <StatCardSkeleton key={i} compact={isMobile} />
+          ))
+        ) : (
+          [
+            <StatCard key="storitve" label="Aktivnih storitev" value={aktivneStranke.length} loading={false} color="#f59e0b" icon={icons.building} compact={isMobile} />,
+            <StatCard key="narocniki" label="Naročniki" value={narocniki.total} loading={false} color="#00a4a7" icon={icons.users} compact={isMobile} />,
+            <StatCard key="neplacano" label="Neplačana opravila" value={fmtMoney(neplacanoZnesek)} loading={false} color="#dc2626" icon={icons.task} compact={isMobile} />,
+            <StatCard key="promet" label="Letni promet" value={fmtMoney(letniPromet)} loading={false} color="#10b981" icon={icons.euro} compact={isMobile} />,
+          ].map((card, i) => (
+            <div key={card.key} className="ka-fade-up" style={{ animationDelay: staggerDelay(i, 0, STAGGER_CARDS) }}>
+              {card}
+            </div>
+          ))
+        )}
       </div>
 
       {/* Stranke — prejšnji mesec (potekle, niso bile podaljšane) */}
@@ -471,7 +477,21 @@ export function DashboardOverview() {
       {/* Stranke naslednji mesec */}
       <StrankeMesec stranke={strankeDetailed} loading={strankeLoading} offset={1} />
 
-      {/* Nedavna aktivnost */}
+      {/* Nedavna aktivnost — swap pattern */}
+      {activityLoading ? (
+        <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #f0f0f0", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", overflow: "hidden" }}>
+          <div style={{ padding: isMobile ? "14px 16px" : "18px 24px", borderBottom: "1px solid #f5f5f5", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <Skeleton height={14} width={140} />
+              <Skeleton height={10} width={210} />
+            </div>
+            <Skeleton height={10} width={70} />
+          </div>
+          <div style={{ padding: isMobile ? "4px 0" : 0 }}>
+            {isMobile ? <ListSkeleton items={5} avatar={false} /> : <TableSkeleton rows={5} cols={5} />}
+          </div>
+        </div>
+      ) : (
       <div className="ka-fade-up" style={{ background: "#fff", borderRadius: 14, border: "1px solid #f0f0f0", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", overflow: "hidden", animationDelay: staggerDelay(4, 80, STAGGER_CARDS) }}>
         <div style={{ padding: isMobile ? "14px 16px" : "18px 24px", borderBottom: "1px solid #f5f5f5", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div>
@@ -483,15 +503,7 @@ export function DashboardOverview() {
           )}
         </div>
 
-        {activityLoading ? (
-          <div style={{ padding: isMobile ? "4px 0" : 0 }}>
-            {isMobile ? (
-              <ListSkeleton items={5} avatar={false} />
-            ) : (
-              <TableSkeleton rows={5} cols={5} />
-            )}
-          </div>
-        ) : activityLog.length === 0 ? (
+        {activityLog.length === 0 ? (
           <div style={{ padding: 40, textAlign: "center", color: "#aaa", fontSize: 14 }}>
             Še ni zabeleženih aktivnosti. Prikazale se bodo po prvi spremembi.
           </div>
@@ -579,6 +591,7 @@ export function DashboardOverview() {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }

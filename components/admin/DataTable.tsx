@@ -564,7 +564,7 @@ export function DataTable({ cptSlug, onAdd }: { cptSlug: string; onAdd?: () => v
         {!effectiveLoading && !effectiveError && filtered.length > 0 && (
           isMobile ? (
             /* ── MOBILNI PRIKAZ: kartice ── */
-            <div>
+            <div className="ka-fade-up">
               {filtered.map((post, i) => {
                 const acf = (post.acf || {}) as Record<string, ColValue>;
                 const cols = CPT_COLUMNS[cptSlug] || [];
@@ -632,6 +632,7 @@ export function DataTable({ cptSlug, onAdd }: { cptSlug: string; onAdd?: () => v
               const cols = CPT_COLUMNS[cptSlug] || [];
               const subtitleFn = CPT_SUBTITLE[cptSlug];
               return (
+                <div className="ka-fade-up">
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
                     <tr style={{ background: "#fafafa" }}>
@@ -690,6 +691,7 @@ export function DataTable({ cptSlug, onAdd }: { cptSlug: string; onAdd?: () => v
                     })}
                   </tbody>
                 </table>
+                </div>
               );
             })()
           )

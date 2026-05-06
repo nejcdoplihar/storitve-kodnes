@@ -810,24 +810,34 @@ export function OpravilaTabela({
         />
       )}
 
-      {/* Summary */}
+      {/* Summary — swap-pattern */}
       <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
-        {[
-          { label: "Skupaj opravil", value: filtered.length + (hasFilter ? ` / ${opravila.length}` : ""), color: "#111", border: "#f0f0f0" },
-          { label: "Skupaj vrednost", value: `${skupajZnesek.toLocaleString("sl-SI", { minimumFractionDigits: 2 })} €`, color: "#111", border: "#f0f0f0" },
-          { label: "Neplačano", value: `${neplačanoZnesek.toLocaleString("sl-SI", { minimumFractionDigits: 2 })} €`, color: "#dc2626", border: "#fee2e2" },
-        ].map(({ label, value, color, border }, i) => (
-          <div
-            key={label}
-            className="ka-fade-up"
-            style={{ background: "#fff", borderRadius: 12, padding: "14px 20px", border: `1px solid ${border}`, flex: 1, animationDelay: staggerDelay(i, 0, STAGGER_CARDS) }}
-          >
-            <div style={{ fontSize: 12, color, marginBottom: 4, opacity: color === "#dc2626" ? 1 : 0.6 }}>{label}</div>
-            <div style={{ fontSize: 22, fontWeight: 700, color }}>
-              {loading ? <Skeleton height={22} width={90} /> : value}
+        {loading ? (
+          Array.from({ length: 3 }).map((_, i) => (
+            <div
+              key={i}
+              style={{ background: "#fff", borderRadius: 12, padding: "14px 20px", border: "1px solid #f0f0f0", flex: 1 }}
+            >
+              <Skeleton height={10} width={100} style={{ marginBottom: 8 }} />
+              <Skeleton height={22} width={120} />
             </div>
-          </div>
-        ))}
+          ))
+        ) : (
+          [
+            { label: "Skupaj opravil", value: filtered.length + (hasFilter ? ` / ${opravila.length}` : ""), color: "#111", border: "#f0f0f0" },
+            { label: "Skupaj vrednost", value: `${skupajZnesek.toLocaleString("sl-SI", { minimumFractionDigits: 2 })} €`, color: "#111", border: "#f0f0f0" },
+            { label: "Neplačano", value: `${neplačanoZnesek.toLocaleString("sl-SI", { minimumFractionDigits: 2 })} €`, color: "#dc2626", border: "#fee2e2" },
+          ].map(({ label, value, color, border }, i) => (
+            <div
+              key={label}
+              className="ka-fade-up"
+              style={{ background: "#fff", borderRadius: 12, padding: "14px 20px", border: `1px solid ${border}`, flex: 1, animationDelay: staggerDelay(i, 0, STAGGER_CARDS) }}
+            >
+              <div style={{ fontSize: 12, color, marginBottom: 4, opacity: color === "#dc2626" ? 1 : 0.6 }}>{label}</div>
+              <div style={{ fontSize: 22, fontWeight: 700, color }}>{value}</div>
+            </div>
+          ))
+        )}
       </div>
 
       <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #f0f0f0", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", overflow: "hidden" }}>
@@ -937,7 +947,7 @@ export function OpravilaTabela({
         {!loading && !error && filtered.length === 0 && <div style={{ padding: 40, textAlign: "center", color: "#aaa", fontSize: 14 }}>{hasFilter ? "Ni rezultatov za izbrane filtre" : "Ni opravil"}</div>}
 
         {!loading && !error && filtered.length > 0 && (
-          <div style={{ overflowX: "auto" }}>
+          <div className="ka-fade-up" style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ background: "#fafafa" }}>

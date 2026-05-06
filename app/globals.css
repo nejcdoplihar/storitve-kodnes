@@ -27,7 +27,7 @@
    UTILITY CLASS-i — uporabni za React komponente
    ============================================================ */
 .ka-skeleton {
-  background: linear-gradient(90deg, #eef0f2 25%, #f6f8fa 50%, #eef0f2 75%);
+  background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%);
   background-size: 200% 100%;
   animation: ka-shimmer 1.4s ease infinite;
   border-radius: 8px;

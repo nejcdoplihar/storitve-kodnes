@@ -8,7 +8,7 @@ import { useMountedAnim } from "@/hooks/useMountedAnim";
 import { BRAND, STORITVE_LABELS, STORITVE_COLORS, MESECI_SHORT } from "@/lib/constants";
 import { getAnnualCost } from "@/lib/helpers";
 import { EASE_OUT, DUR_LONG, STAGGER, STAGGER_CARDS, STAGGER_CHART, staggerDelay } from "@/lib/animations";
-import { CardSkeleton, ListSkeleton, Skeleton } from "@/components/admin/Skeletons";
+import { CardSkeleton, ListSkeleton, Skeleton, TableSkeleton } from "@/components/admin/Skeletons";
 import type { Stranka } from "@/types/admin";
 
 // ============================================================
@@ -378,25 +378,21 @@ export function StatistikaView() {
 
   const totalStoritev = Object.values(serviceStranke).reduce((a, b) => a + b, 0);
 
-  // ── Skeleton state — uniformno z ostalimi viewi (rows-of-lines style) ──
+  // ── Skeleton state — table-style vrstice (kot priponka) ──
   if (isLoading) {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 2fr) minmax(0, 1fr)", gap: 16 }}>
-          <Skeleton height={130} borderRadius={14} />
-          <Skeleton height={130} borderRadius={14} />
+        {/* Hero - 4 plain blocks v vrsti (kot priponka) */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+          <Skeleton height={50} borderRadius={10} />
+          <Skeleton height={50} borderRadius={10} />
+          <Skeleton height={50} borderRadius={10} />
+          <Skeleton height={50} borderRadius={10} />
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 20 }}>
-          <CardSkeleton>
-            <ListSkeleton items={5} avatar={false} />
-          </CardSkeleton>
-          <CardSkeleton>
-            <ListSkeleton items={5} avatar={false} />
-          </CardSkeleton>
+        {/* Velika tabela skeleton — 4 stolpci, header + vrstice */}
+        <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #f0f0f0", boxShadow: "0 1px 4px rgba(0,0,0,0.05)", overflow: "hidden" }}>
+          <TableSkeleton rows={8} cols={4} showHeader />
         </div>
-        <CardSkeleton>
-          <ListSkeleton items={5} avatar />
-        </CardSkeleton>
       </div>
     );
   }
@@ -570,10 +566,23 @@ export function FinanceView() {
     { label: "Vzdrževanje", value: totalVzdrz, color: STORITVE_COLORS.vzdrzevanje },
   ];
 
-  if (loading)
+  if (loading) {
     return (
-      <div style={{ padding: 40, textAlign: "center", color: "#aaa" }}>Nalaganje...</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+        {/* Hero - 4 plain blocks v vrsti */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+          <Skeleton height={50} borderRadius={10} />
+          <Skeleton height={50} borderRadius={10} />
+          <Skeleton height={50} borderRadius={10} />
+          <Skeleton height={50} borderRadius={10} />
+        </div>
+        {/* Velika tabela skeleton — 4 stolpci, header + vrstice */}
+        <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #f0f0f0", boxShadow: "0 1px 4px rgba(0,0,0,0.05)", overflow: "hidden" }}>
+          <TableSkeleton rows={8} cols={4} showHeader />
+        </div>
+      </div>
     );
+  }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
