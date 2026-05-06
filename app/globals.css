@@ -23,6 +23,19 @@
   50%      { opacity: 0.55; }
 }
 
+@keyframes ka-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+
+@keyframes ka-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 /* ============================================================
    UTILITY CLASS-i — uporabni za React komponente
    ============================================================ */
@@ -46,6 +59,14 @@
   animation: ka-pulse-dim 1.6s ease-in-out infinite;
 }
 
+.ka-shake {
+  animation: ka-shake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
+.ka-spin {
+  animation: ka-spin 0.7s linear infinite;
+}
+
 /* Subtilni indikator za refetch (opacity dim na obstoječi vsebini) */
 .ka-refetching {
   opacity: 0.55;
@@ -57,7 +78,9 @@
   .ka-skeleton,
   .ka-fade-up,
   .ka-fade-in,
-  .ka-pulse-dim {
+  .ka-pulse-dim,
+  .ka-shake,
+  .ka-spin {
     animation: none !important;
   }
 }
