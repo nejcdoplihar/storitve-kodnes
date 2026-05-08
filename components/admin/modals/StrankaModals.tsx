@@ -395,12 +395,6 @@ export function NovaStrankaModal({
       </FormField>
 
       <FormField label="Naročnik">
-
-        
-  {/* DEBUG */}
-  <div style={{ fontSize: 12, color: "#999", marginBottom: 6 }}>
-    Št. naročnikov: {safeNarocniki.length}
-  </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <div style={{ flex: 1 }}>
             <SearchSelect

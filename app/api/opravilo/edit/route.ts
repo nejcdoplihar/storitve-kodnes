@@ -69,16 +69,17 @@ export async function POST(req: NextRequest) {
       placano: Boolean(placano),
     };
 
-    if (clear_narocnik_rel) {
-      acfPayload.narocnik_rel = false;
-    } else if (hasNarocnik) {
+    // ACF Relationship polje pričakuje array — false sproži "must have a valid post ID"
+    if (hasNarocnik) {
       acfPayload.narocnik_rel = [Number(narocnik_id)];
+    } else if (clear_narocnik_rel) {
+      acfPayload.narocnik_rel = [];
     }
 
-    if (clear_stranka_rel) {
-      acfPayload.stranka_rel = false;
-    } else if (hasStranka) {
+    if (hasStranka) {
       acfPayload.stranka_rel = [Number(stranka_id)];
+    } else if (clear_stranka_rel) {
+      acfPayload.stranka_rel = [];
     }
 
     const res = await fetch(`${WP_URL}/wp-json/wp/v2/opravilo/${id}`, {

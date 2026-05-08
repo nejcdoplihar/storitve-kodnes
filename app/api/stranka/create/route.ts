@@ -64,10 +64,11 @@ export async function POST(req: NextRequest) {
       opombe: opombe || "",
     };
 
-    if (clear_narocnik_rel) {
-      acfPayload.narocnik_rel = false;
-    } else if (hasNarocnik) {
+    // ACF Relationship polje pričakuje array — false sproži "must have a valid post ID"
+    if (hasNarocnik) {
       acfPayload.narocnik_rel = [Number(narocnik_id)];
+    } else if (clear_narocnik_rel) {
+      acfPayload.narocnik_rel = [];
     }
 
     const wpPayload = {

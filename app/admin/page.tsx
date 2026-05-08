@@ -13,7 +13,7 @@ import { StatistikaView, FinanceView } from "@/components/admin/views/FinanceSta
 import { ProfilView } from "@/components/admin/views/ProfilView";
 import { NovaStrankaModal, NovNarocnikModal, NovaPonudbaModal } from "@/components/admin/modals/StrankaModals";
 import { useSessionTimeout } from "@/hooks/useAuth";
-import { useStranke } from "@/hooks/useWPData";
+import { useStranke, useNarocniki } from "@/hooks/useWPData";
 import type { ActiveView } from "@/types/admin";
 
 // ============================================================
@@ -175,6 +175,7 @@ export default function Dashboard() {
   const [showNovaPonudba, setShowNovaPonudba] = useState(false);
   const [dataTableKey, setDataTableKey] = useState(0);
   const { stranke: strankeList } = useStranke();
+  const { narocniki: narocnikiList } = useNarocniki();
 
   // Zaznaj mobilno napravo
   useEffect(() => {
@@ -322,7 +323,7 @@ export default function Dashboard() {
           )}
 
           {/* Modals */}
-          {showNovaStranka && <NovaStrankaModal onClose={() => setShowNovaStranka(false)} onSaved={handleSaved} />}
+          {showNovaStranka && <NovaStrankaModal onClose={() => setShowNovaStranka(false)} onSaved={handleSaved} narocniki={narocnikiList} />}
           {showNovNarocnik && <NovNarocnikModal onClose={() => setShowNovNarocnik(false)} onSaved={handleSaved} />}
           {showNovaPonudba && <NovaPonudbaModal onClose={() => setShowNovaPonudba(false)} onSaved={handleSaved} stranke={strankeList} />}
 
