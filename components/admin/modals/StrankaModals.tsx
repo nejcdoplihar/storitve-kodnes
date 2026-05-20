@@ -587,7 +587,112 @@ export function NovNarocnikModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  // ── VIES iskanje ───────────────────────────────────────────
+  const [viesCountry, setViesCountry] = useState<"SI" | "IT">("SI");
+  const [viesVat, setViesVat] = useState("");
+  const [viesLoading, setViesLoading] = useState(false);
+  const [viesError, setViesError] = useState("");
+  const [viesSuccess, setViesSuccess] = useState("");
+  const [pendingVies, setPendingVies] = useState<{
+    name: string;
+    street: string;
+    postal: string;
+    city: string;
+    vat: string;
+    overwrittenFields: string[];
+  } | null>(null);
+
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
+
+  // Polni form iz VIES rezultata (samo neprazna polja)
+  const applyVies = (data: {
+    name: string;
+    street: string;
+    postal: string;
+    city: string;
+    vat: string;
+  }) => {
+    setForm((f) => ({
+      ...f,
+      ...(data.name ? { title: data.name } : {}),
+      ...(data.street ? { narocnik_naslov: data.street } : {}),
+      ...(data.postal ? { narocnik_postna_stevilka: data.postal } : {}),
+      ...(data.city ? { narocnik_posta: data.city } : {}),
+      ...(data.vat ? { narocnik_davcna_stevilka: data.vat } : {}),
+    }));
+    setPendingVies(null);
+    setViesSuccess("Podatki uvoženi iz VIES.");
+    setTimeout(() => setViesSuccess(""), 3500);
+  };
+
+  const searchVies = async () => {
+    const vat = viesVat.trim();
+    if (!vat) {
+      setViesError("Vnesi davčno številko.");
+      return;
+    }
+    setViesError("");
+    setViesSuccess("");
+    setPendingVies(null);
+    setViesLoading(true);
+
+    try {
+      const res = await fetch("/api/vies", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ country: viesCountry, vat }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setViesError(data.error || "Napaka pri iskanju.");
+        return;
+      }
+
+      // Določi katera obstoječa polja bi bila prepisana
+      const fieldMap: Array<{
+        key: keyof typeof form;
+        label: string;
+        value: string;
+      }> = [
+        { key: "title", label: "Naziv", value: data.name || "" },
+        { key: "narocnik_naslov", label: "Naslov", value: data.street || "" },
+        { key: "narocnik_postna_stevilka", label: "Poštna številka", value: data.postal || "" },
+        { key: "narocnik_posta", label: "Pošta", value: data.city || "" },
+        { key: "narocnik_davcna_stevilka", label: "Davčna številka", value: data.vat || "" },
+      ];
+
+      const overwritten = fieldMap
+        .filter(
+          (f) =>
+            f.value &&
+            form[f.key] &&
+            form[f.key].trim() !== f.value.trim()
+        )
+        .map((f) => f.label);
+
+      const result = {
+        name: data.name || "",
+        street: data.street || "",
+        postal: data.postal || "",
+        city: data.city || "",
+        vat: data.vat || "",
+        overwrittenFields: overwritten,
+      };
+
+      if (overwritten.length === 0) {
+        // Ni konflikta — tiho zapolni
+        applyVies(result);
+      } else {
+        // Pokaži opozorilo z gumboma
+        setPendingVies(result);
+      }
+    } catch (e) {
+      setViesError(e instanceof Error ? e.message : "Napaka pri iskanju.");
+    } finally {
+      setViesLoading(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!form.title.trim()) {
@@ -629,6 +734,176 @@ export function NovNarocnikModal({
         </>
       }
     >
+      {/* ── VIES iskanje ── */}
+      <div
+        style={{
+          padding: 14,
+          background: "#f0fdfc",
+          borderRadius: 10,
+          border: `1px solid ${BRAND}33`,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            fontSize: 13,
+            fontWeight: 600,
+            color: "#111",
+            marginBottom: 8,
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={BRAND} strokeWidth="2">
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          Avto-izpolni podatke iz VIES
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <select
+            value={viesCountry}
+            onChange={(e) => setViesCountry(e.target.value as "SI" | "IT")}
+            style={{ ...fldStyle, width: 80, flexShrink: 0, cursor: "pointer" }}
+          >
+            <option value="SI">SI</option>
+            <option value="IT">IT</option>
+          </select>
+          <input
+            value={viesVat}
+            onChange={(e) => setViesVat(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                searchVies();
+              }
+            }}
+            placeholder="12345678 (samo številke)"
+            style={{ ...fldStyle, flex: 1 }}
+          />
+          <button
+            type="button"
+            onClick={searchVies}
+            disabled={viesLoading}
+            style={{
+              padding: "9px 16px",
+              borderRadius: 8,
+              border: "none",
+              background: viesLoading ? "#99d6d8" : BRAND,
+              color: "#fff",
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: viesLoading ? "default" : "pointer",
+              whiteSpace: "nowrap",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            {viesLoading ? (
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                className="ka-spin"
+              >
+                <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+              </svg>
+            ) : null}
+            {viesLoading ? "Iščem..." : "Poišči"}
+          </button>
+        </div>
+
+        {viesError && (
+          <div
+            style={{
+              marginTop: 8,
+              padding: "8px 10px",
+              background: "#fef2f2",
+              color: "#dc2626",
+              border: "1px solid #fecaca",
+              borderRadius: 6,
+              fontSize: 12,
+            }}
+          >
+            ⚠️ {viesError}
+          </div>
+        )}
+
+        {viesSuccess && (
+          <div
+            style={{
+              marginTop: 8,
+              padding: "8px 10px",
+              background: "#dcfce7",
+              color: "#15803d",
+              border: "1px solid #bbf7d0",
+              borderRadius: 6,
+              fontSize: 12,
+            }}
+          >
+            ✓ {viesSuccess}
+          </div>
+        )}
+
+        {pendingVies && (
+          <div
+            style={{
+              marginTop: 8,
+              padding: 10,
+              background: "#fef3c7",
+              border: "1px solid #fde68a",
+              borderRadius: 6,
+              fontSize: 12,
+              color: "#854d0e",
+            }}
+          >
+            <div style={{ marginBottom: 8 }}>
+              <strong>Opozorilo:</strong> sledeča polja bodo prepisana:{" "}
+              <strong>{pendingVies.overwrittenFields.join(", ")}</strong>
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                type="button"
+                onClick={() => applyVies(pendingVies)}
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: 6,
+                  border: "none",
+                  background: "#d97706",
+                  color: "#fff",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Da, prepiši
+              </button>
+              <button
+                type="button"
+                onClick={() => setPendingVies(null)}
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: 6,
+                  border: "1px solid #fde68a",
+                  background: "#fff",
+                  color: "#854d0e",
+                  fontSize: 12,
+                  fontWeight: 500,
+                  cursor: "pointer",
+                }}
+              >
+                Prekliči
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
       <FormField label="Naziv naročnika" required>
         <input
           value={form.title}
