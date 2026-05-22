@@ -11,6 +11,7 @@ import { DashboardOverview } from "@/components/admin/views/DashboardOverview";
 import { OpravilaView } from "@/components/admin/views/OpravilaView";
 import { StatistikaView, FinanceView } from "@/components/admin/views/FinanceStatistikaView";
 import { ProfilView } from "@/components/admin/views/ProfilView";
+import { StrankePoMesecu } from "@/components/admin/views/StrankePoMesecu";
 import { NovaStrankaModal, NovNarocnikModal, NovaPonudbaModal } from "@/components/admin/modals/StrankaModals";
 import { useSessionTimeout } from "@/hooks/useAuth";
 import { useStranke, useNarocniki } from "@/hooks/useWPData";
@@ -339,19 +340,22 @@ export default function Dashboard() {
           ) : activeView === "profil" ? (
             <ProfilView />
           ) : (
-            <DataTable
-              key={dataTableKey}
-              cptSlug={activeView}
-              onAdd={
-                activeView === "stranka"
-                  ? () => setShowNovaStranka(true)
-                  : activeView === "narocnik"
-                  ? () => setShowNovNarocnik(true)
-                  : activeView === "ponudba"
-                  ? () => setShowNovaPonudba(true)
-                  : undefined
-              }
-            />
+            <>
+              <DataTable
+                key={dataTableKey}
+                cptSlug={activeView}
+                onAdd={
+                  activeView === "stranka"
+                    ? () => setShowNovaStranka(true)
+                    : activeView === "narocnik"
+                    ? () => setShowNovNarocnik(true)
+                    : activeView === "ponudba"
+                    ? () => setShowNovaPonudba(true)
+                    : undefined
+                }
+              />
+              {activeView === "stranka" && <StrankePoMesecu />}
+            </>
           )}
         </div>
       </main>
