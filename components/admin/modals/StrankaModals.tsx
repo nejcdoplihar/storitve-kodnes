@@ -12,7 +12,7 @@ import {
   ErrorMsg,
   fldStyle,
 } from "../UI";
-import { LicencniKljucInput } from "../LicencniKljuc";
+import { LicencniKljucInput, DatotekeRepeaterInput } from "../LicencniKljuc";
 import type { Post } from "@/types/admin";
 
 // ============================================================
@@ -1134,6 +1134,7 @@ export function NovaLicencaModal({
 }) {
   const [title, setTitle] = useState("");
   const [licencniKljuc, setLicencniKljuc] = useState("");
+  const [datoteke, setDatoteke] = useState<Array<{ url_datoteke: string }>>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -1145,7 +1146,11 @@ export function NovaLicencaModal({
       const res = await fetch("/api/licenca/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: title.trim(), licencni_kljuc: licencniKljuc.trim() }),
+        body: JSON.stringify({
+          title: title.trim(),
+          licencni_kljuc: licencniKljuc.trim(),
+          datoteke: datoteke.filter((d) => d.url_datoteke.trim()),
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Napaka");
@@ -1181,6 +1186,9 @@ export function NovaLicencaModal({
       </FormField>
       <FormField label="Licenčni ključ">
         <LicencniKljucInput value={licencniKljuc} onChange={setLicencniKljuc} />
+      </FormField>
+      <FormField label="Datoteke">
+        <DatotekeRepeaterInput value={datoteke} onChange={setDatoteke} />
       </FormField>
       <ErrorMsg msg={error} />
     </ModalWrapper>

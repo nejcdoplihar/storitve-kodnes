@@ -10,7 +10,7 @@ import { BRAND } from "@/lib/constants";
 import { icons } from "./Icons";
 import { StatusBadge, ConfirmDeleteDialog } from "./UI";
 import { TableSkeleton, ListSkeleton } from "./Skeletons";
-import { LicencniKljucDisplay, LicencniKljucInput } from "./LicencniKljuc";
+import { LicencniKljucDisplay, LicencniKljucInput, DatotekeDisplay, DatotekeRepeaterInput } from "./LicencniKljuc";
 
 const DELETABLE = ["narocnik", "stranka", "ponudba", "licenca"];
 const EDITABLE = ["narocnik", "stranka", "licenca"];
@@ -97,8 +97,14 @@ const CPT_COLUMNS: Record<string, ColDef[]> = {
   licenca: [
     {
       label: "Licenčni ključ",
-      render: (acf) => <LicencniKljucDisplay value={String(acf.licencni_kljuc || "")} />,
-      width: 320,
+      render: (acf) => <LicencniKljucDisplay value={String(acf.licencni_kljuc || "")} compact />,
+      width: 260,
+    },
+    {
+      label: "Datoteke",
+      render: (acf) => <DatotekeDisplay datoteke={(acf.datoteke as unknown as Array<{ url_datoteke: string }>) || []} />,
+      width: 220,
+      hideOnMobile: true,
     },
   ],
 };
@@ -474,6 +480,7 @@ type LicencaPost = {
   title: { rendered: string };
   acf?: {
     licencni_kljuc?: string;
+    datoteke?: Array<{ url_datoteke: string }>;
   };
 };
 
@@ -481,6 +488,7 @@ function UrediLicencoModal({ post, onClose, onSaved }: { post: LicencaPost; onCl
   const rawTitle = post.title.rendered.replace(/<[^>]*>/g, "");
   const [title, setTitle] = useState(rawTitle);
   const [licencniKljuc, setLicencniKljuc] = useState(post.acf?.licencni_kljuc || "");
+  const [datoteke, setDatoteke] = useState<Array<{ url_datoteke: string }>>(post.acf?.datoteke || []);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -495,6 +503,7 @@ function UrediLicencoModal({ post, onClose, onSaved }: { post: LicencaPost; onCl
           id: post.id,
           title: title.trim(),
           licencni_kljuc: licencniKljuc.trim(),
+          datoteke: datoteke.filter((d) => d.url_datoteke.trim()),
         }),
       });
       if (!res.ok) { const d = await res.json(); setError(d.error || "Napaka pri shranjevanju"); return; }
@@ -510,6 +519,9 @@ function UrediLicencoModal({ post, onClose, onSaved }: { post: LicencaPost; onCl
       </FormField>
       <FormField label="Licenčni ključ">
         <LicencniKljucInput value={licencniKljuc} onChange={setLicencniKljuc} />
+      </FormField>
+      <FormField label="Datoteke">
+        <DatotekeRepeaterInput value={datoteke} onChange={setDatoteke} />
       </FormField>
       <ErrorMsg msg={error} />
     </ModalWrapper>

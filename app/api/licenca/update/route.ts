@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Ni avtorizacije" }, { status: 401 });
 
   const body = await req.json();
-  const { id, title, licencni_kljuc } = body;
+  const { id, title, licencni_kljuc, datoteke } = body;
 
   if (!id) return NextResponse.json({ error: "Manjka id" }, { status: 400 });
   if (!title?.trim()) return NextResponse.json({ error: "Naziv licence je obvezen" }, { status: 400 });
@@ -23,7 +23,10 @@ export async function POST(req: NextRequest) {
     headers: { "Content-Type": "application/json", Authorization: `Basic ${credentials()}` },
     body: JSON.stringify({
       title: title.trim(),
-      acf: { licencni_kljuc: licencni_kljuc || "" },
+      acf: {
+        licencni_kljuc: licencni_kljuc || "",
+        datoteke: Array.isArray(datoteke) ? datoteke : [],
+      },
     }),
   });
 

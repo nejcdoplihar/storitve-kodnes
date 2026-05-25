@@ -1,11 +1,145 @@
 "use client";
 // components/admin/LicencniKljuc.tsx
-// Komponente za prikaz / urejanje licenčnega ključa
-// — masking + show/hide toggle + copy-to-clipboard z vizualnim feedbackom
+// Komponente za prikaz / urejanje licenčnega ključa in datotek
 
 import { useState } from "react";
 import { BRAND } from "@/lib/constants";
 import { icons } from "./Icons";
+
+// ============================================================
+// HELPERS
+// ============================================================
+function toDirectUrl(url: string): string {
+  if (!url) return url;
+  // Dropbox: dl=0 → dl=1 za direkten prenos
+  return url.replace(/([?&])dl=0/, "$1dl=1");
+}
+
+function fileNameFromUrl(url: string): string {
+  try {
+    const pathname = new URL(url).pathname;
+    const name = pathname.split("/").filter(Boolean).pop() || url;
+    return decodeURIComponent(name);
+  } catch {
+    return url;
+  }
+}
+
+// ============================================================
+// DATOTEKE DISPLAY — read-only (za tabelo / kartico)
+// ============================================================
+export function DatotekeDisplay({ datoteke }: { datoteke: Array<{ url_datoteke: string }> }) {
+  const valid = (datoteke || []).filter((d) => d.url_datoteke?.trim());
+  if (!valid.length) return <span style={{ color: "#bbb", fontSize: 12 }}>—</span>;
+  return (
+    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+      {valid.map((d, i) => {
+        const href = toDirectUrl(d.url_datoteke);
+        const name = fileNameFromUrl(d.url_datoteke);
+        return (
+          <a
+            key={i}
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            title={name}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+              padding: "3px 10px",
+              borderRadius: 20,
+              fontSize: 12,
+              fontWeight: 500,
+              background: "#f0fdf4",
+              color: "#15803d",
+              border: "1px solid #bbf7d0",
+              textDecoration: "none",
+              maxWidth: 180,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              flexShrink: 0,
+            }}
+          >
+            <span style={{ flexShrink: 0 }}>{icons.download}</span>
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{name}</span>
+          </a>
+        );
+      })}
+    </div>
+  );
+}
+
+// ============================================================
+// DATOTEKE REPEATER INPUT — za forme (nova / uredi licenca)
+// ============================================================
+export function DatotekeRepeaterInput({
+  value,
+  onChange,
+}: {
+  value: Array<{ url_datoteke: string }>;
+  onChange: (v: Array<{ url_datoteke: string }>) => void;
+}) {
+  const add = () => onChange([...value, { url_datoteke: "" }]);
+  const remove = (i: number) => onChange(value.filter((_, idx) => idx !== i));
+  const update = (i: number, url: string) =>
+    onChange(value.map((v, idx) => (idx === i ? { url_datoteke: url } : v)));
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {value.map((d, i) => (
+        <div key={i} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <input
+            type="url"
+            value={d.url_datoteke}
+            onChange={(e) => update(i, e.target.value)}
+            placeholder="https://www.dropbox.com/s/xxx/plugin.zip?dl=0"
+            style={{
+              flex: 1,
+              padding: "9px 12px",
+              borderRadius: 8,
+              border: "1px solid #e5e7eb",
+              fontSize: 13,
+              outline: "none",
+              color: "#111",
+              fontFamily: "inherit",
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => remove(i)}
+            title="Odstrani"
+            style={{ border: "none", background: "transparent", cursor: "pointer", color: "#d1d5db", padding: 6, borderRadius: 6, display: "flex", flexShrink: 0 }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "#dc2626")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "#d1d5db")}
+          >
+            {icons.trash}
+          </button>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={add}
+        style={{
+          alignSelf: "flex-start",
+          padding: "7px 14px",
+          borderRadius: 8,
+          border: "1px dashed #d1d5db",
+          background: "#fafafa",
+          color: "#6b7280",
+          fontSize: 13,
+          cursor: "pointer",
+          fontWeight: 500,
+          fontFamily: "inherit",
+        }}
+      >
+        + Dodaj datoteko
+      </button>
+    </div>
+  );
+}
 
 // ============================================================
 // LICENCNI KLJUC DISPLAY — read-only cell (za tabelo / kartico)

@@ -64,6 +64,7 @@ export type ActiveView =
 
 export type LicencaACF = {
   licencni_kljuc?: string;
+  datoteke?: Array<{ url_datoteke: string }>;
 };
 
 export type Licenca = Post & {
