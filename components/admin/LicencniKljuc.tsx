@@ -34,12 +34,11 @@ export function DatotekeDisplay({ datoteke }: { datoteke: Array<{ url_datoteke: 
   return (
     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
       {valid.map((d, i) => {
-        const href = toDirectUrl(d.url_datoteke);
         const name = fileNameFromUrl(d.url_datoteke);
         return (
           <a
             key={i}
-            href={href}
+            href={d.url_datoteke}
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
@@ -137,6 +136,111 @@ export function DatotekeRepeaterInput({
       >
         + Dodaj datoteko
       </button>
+    </div>
+  );
+}
+
+// ============================================================
+// POGLEJ LICENCO MODAL — read-only popup
+// ============================================================
+export function PoglejLicencoModal({
+  title,
+  licencniKljuc,
+  datoteke,
+  onClose,
+}: {
+  title: string;
+  licencniKljuc: string;
+  datoteke: Array<{ url_datoteke: string }>;
+  onClose: () => void;
+}) {
+  const validFiles = (datoteke || []).filter((d) => d.url_datoteke?.trim());
+
+  return (
+    <div
+      style={{ position: "fixed", inset: 0, zIndex: 9000, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+      onClick={onClose}
+    >
+      <div
+        style={{ background: "#fff", borderRadius: 16, width: "min(480px, 92vw)", maxHeight: "85vh", display: "flex", flexDirection: "column", boxShadow: "0 20px 60px rgba(0,0,0,0.2)", overflow: "hidden" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div style={{ padding: "20px 24px", borderBottom: "1px solid #f0f0f0", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+          <div>
+            <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "#111" }}>{title}</h2>
+            <div style={{ fontSize: 13, color: "#9ca3af", marginTop: 2 }}>Podrobnosti licence</div>
+          </div>
+          <button
+            onClick={onClose}
+            style={{ border: "none", background: "transparent", cursor: "pointer", color: "#9ca3af", display: "flex", alignItems: "center", padding: 4, borderRadius: 6 }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: "20px 24px", overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: 20 }}>
+          {/* Licenčni ključ */}
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Licenčni ključ</div>
+            {licencniKljuc
+              ? <LicencniKljucDisplay value={licencniKljuc} />
+              : <span style={{ color: "#bbb", fontSize: 13 }}>—</span>
+            }
+          </div>
+
+          {/* Datoteke */}
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>
+              Datoteke {validFiles.length > 0 && <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>({validFiles.length})</span>}
+            </div>
+            {validFiles.length > 0 ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {validFiles.map((d, i) => (
+                  <a
+                    key={i}
+                    href={d.url_datoteke}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      padding: "10px 14px",
+                      borderRadius: 10,
+                      border: "1px solid #e5e7eb",
+                      textDecoration: "none",
+                      background: "#fafafa",
+                      transition: "background 0.15s",
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "#f0fdf4")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "#fafafa")}
+                  >
+                    <span style={{ color: "#15803d", flexShrink: 0 }}>{icons.download}</span>
+                    <span style={{ fontSize: 13, color: "#111", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
+                      {fileNameFromUrl(d.url_datoteke)}
+                    </span>
+                    <span style={{ color: "#d1d5db", flexShrink: 0 }}>{icons.link}</span>
+                  </a>
+                ))}
+              </div>
+            ) : (
+              <span style={{ color: "#bbb", fontSize: 13 }}>—</span>
+            )}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: "14px 24px", borderTop: "1px solid #f0f0f0", display: "flex", justifyContent: "flex-end", flexShrink: 0 }}>
+          <button
+            onClick={onClose}
+            style={{ padding: "9px 22px", borderRadius: 8, border: "1px solid #e5e7eb", background: "#fff", fontSize: 14, cursor: "pointer", color: "#555", fontWeight: 500 }}
+          >
+            Zapri
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -10,7 +10,7 @@ import { BRAND } from "@/lib/constants";
 import { icons } from "./Icons";
 import { StatusBadge, ConfirmDeleteDialog } from "./UI";
 import { TableSkeleton, ListSkeleton } from "./Skeletons";
-import { LicencniKljucDisplay, LicencniKljucInput, DatotekeDisplay, DatotekeRepeaterInput } from "./LicencniKljuc";
+import { LicencniKljucDisplay, LicencniKljucInput, DatotekeDisplay, DatotekeRepeaterInput, PoglejLicencoModal } from "./LicencniKljuc";
 
 const DELETABLE = ["narocnik", "stranka", "ponudba", "licenca"];
 const EDITABLE = ["narocnik", "stranka", "licenca"];
@@ -540,6 +540,7 @@ export function DataTable({ cptSlug, onAdd }: { cptSlug: string; onAdd?: () => v
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; naziv: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [editTarget, setEditTarget] = useState<AnyPost | null>(null);
+  const [viewTarget, setViewTarget] = useState<LicencaPost | null>(null);
   const isMobile = useIsMobile();
 
   const { posts, loading, error, total, totalPages, refetch } = useWPData(cptSlug, page, perPage);
@@ -595,6 +596,14 @@ export function DataTable({ cptSlug, onAdd }: { cptSlug: string; onAdd?: () => v
       )}
       {editTarget && cptSlug === "licenca" && (
         <UrediLicencoModal post={editTarget as LicencaPost} onClose={() => setEditTarget(null)} onSaved={handleRefresh} />
+      )}
+      {viewTarget && (
+        <PoglejLicencoModal
+          title={viewTarget.title.rendered.replace(/<[^>]*>/g, "")}
+          licencniKljuc={viewTarget.acf?.licencni_kljuc || ""}
+          datoteke={viewTarget.acf?.datoteke || []}
+          onClose={() => setViewTarget(null)}
+        />
       )}
 
       <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #f0f0f0", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", overflow: "hidden" }}>
@@ -679,9 +688,18 @@ export function DataTable({ cptSlug, onAdd }: { cptSlug: string; onAdd?: () => v
                             Uredi
                           </button>
                         )}
-                        <a href={`/cpt/${cptSlug}/${post.slug}`} style={{ fontSize: 13, color: "#6b7280", fontWeight: 500, textDecoration: "none", padding: "6px 10px", borderRadius: 8, background: "#f3f4f6" }}>
-                          Poglej
-                        </a>
+                        {cptSlug === "licenca" ? (
+                          <button
+                            onClick={() => setViewTarget(post as LicencaPost)}
+                            style={{ fontSize: 13, color: "#6b7280", fontWeight: 500, border: "none", cursor: "pointer", padding: "6px 10px", borderRadius: 8, background: "#f3f4f6" }}
+                          >
+                            Poglej
+                          </button>
+                        ) : (
+                          <a href={`/cpt/${cptSlug}/${post.slug}`} style={{ fontSize: 13, color: "#6b7280", fontWeight: 500, textDecoration: "none", padding: "6px 10px", borderRadius: 8, background: "#f3f4f6" }}>
+                            Poglej
+                          </a>
+                        )}
                         {DELETABLE.includes(cptSlug) && (
                           <button
                             onClick={() => setDeleteTarget({ id: post.id, naziv: post.title.rendered.replace(/<[^>]*>/g, "") })}
@@ -745,9 +763,18 @@ export function DataTable({ cptSlug, onAdd }: { cptSlug: string; onAdd?: () => v
                                   Uredi {icons.arrow}
                                 </button>
                               )}
-                              <a href={`/cpt/${cptSlug}/${post.slug}`} style={{ fontSize: 13, color: "#6b7280", fontWeight: 500, textDecoration: "none", display: "flex", alignItems: "center", gap: 2, whiteSpace: "nowrap" }}>
-                                Poglej {icons.arrow}
-                              </a>
+                              {cptSlug === "licenca" ? (
+                                <button
+                                  onClick={() => setViewTarget(post as LicencaPost)}
+                                  style={{ fontSize: 13, color: "#6b7280", fontWeight: 500, background: "transparent", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 2, padding: 0, whiteSpace: "nowrap" }}
+                                >
+                                  Poglej {icons.arrow}
+                                </button>
+                              ) : (
+                                <a href={`/cpt/${cptSlug}/${post.slug}`} style={{ fontSize: 13, color: "#6b7280", fontWeight: 500, textDecoration: "none", display: "flex", alignItems: "center", gap: 2, whiteSpace: "nowrap" }}>
+                                  Poglej {icons.arrow}
+                                </a>
+                              )}
                               {DELETABLE.includes(cptSlug) && (
                                 <button onClick={() => setDeleteTarget({ id: post.id, naziv: post.title.rendered.replace(/<[^>]*>/g, "") })} title="Premakni v koš"
                                   style={{ border: "none", background: "transparent", cursor: "pointer", color: "#d1d5db", padding: 4, borderRadius: 6 }}
