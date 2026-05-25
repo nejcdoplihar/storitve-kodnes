@@ -59,4 +59,13 @@ export type ActiveView =
   | "statistika"
   | "finance"
   | "opravila"
+  | "licenca"
   | "profil";
+
+export type LicencaACF = {
+  licencni_kljuc?: string;
+};
+
+export type Licenca = Post & {
+  acf: LicencaACF;
+};

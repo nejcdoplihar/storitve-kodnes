@@ -10,9 +10,10 @@ import { BRAND } from "@/lib/constants";
 import { icons } from "./Icons";
 import { StatusBadge, ConfirmDeleteDialog } from "./UI";
 import { TableSkeleton, ListSkeleton } from "./Skeletons";
+import { LicencniKljucDisplay, LicencniKljucInput } from "./LicencniKljuc";
 
-const DELETABLE = ["narocnik", "stranka", "ponudba"];
-const EDITABLE = ["narocnik", "stranka"];
+const DELETABLE = ["narocnik", "stranka", "ponudba", "licenca"];
+const EDITABLE = ["narocnik", "stranka", "licenca"];
 
 // ============================================================
 // KONFIGURACIJSKI SISTEM STOLPCEV
@@ -91,6 +92,13 @@ const CPT_COLUMNS: Record<string, ColDef[]> = {
         const s = String(acf.status_ponudbe || "");
         return <span style={{ fontSize: 12, color: "#555" }}>{labels[s] || s || "—"}</span>;
       }, width: 110,
+    },
+  ],
+  licenca: [
+    {
+      label: "Licenčni ključ",
+      render: (acf) => <LicencniKljucDisplay value={String(acf.licencni_kljuc || "")} />,
+      width: 320,
     },
   ],
 };
@@ -459,9 +467,59 @@ function UrediStrankaModal({ post, onClose, onSaved }: { post: StrankaPost; onCl
 }
 
 // ============================================================
+// UREDI LICENCA MODAL
+// ============================================================
+type LicencaPost = {
+  id: number;
+  title: { rendered: string };
+  acf?: {
+    licencni_kljuc?: string;
+  };
+};
+
+function UrediLicencoModal({ post, onClose, onSaved }: { post: LicencaPost; onClose: () => void; onSaved: () => void }) {
+  const rawTitle = post.title.rendered.replace(/<[^>]*>/g, "");
+  const [title, setTitle] = useState(rawTitle);
+  const [licencniKljuc, setLicencniKljuc] = useState(post.acf?.licencni_kljuc || "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSave = async () => {
+    if (!title.trim()) { setError("Naziv je obvezen"); return; }
+    setSaving(true); setError("");
+    try {
+      const res = await fetch("/api/licenca/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: post.id,
+          title: title.trim(),
+          licencni_kljuc: licencniKljuc.trim(),
+        }),
+      });
+      if (!res.ok) { const d = await res.json(); setError(d.error || "Napaka pri shranjevanju"); return; }
+      onSaved(); onClose();
+    } catch { setError("Napaka pri shranjevanju"); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <ModalWrapper title="Uredi licenco" subtitle={rawTitle} onClose={onClose} onSave={handleSave} saving={saving}>
+      <FormField label="Naziv licence" required>
+        <input style={inputStyle} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="npr. Adobe Creative Cloud — naročnik X" />
+      </FormField>
+      <FormField label="Licenčni ključ">
+        <LicencniKljucInput value={licencniKljuc} onChange={setLicencniKljuc} />
+      </FormField>
+      <ErrorMsg msg={error} />
+    </ModalWrapper>
+  );
+}
+
+// ============================================================
 // DATA TABLE — MOBILNE KARTICE + DESKTOP TABELA
 // ============================================================
-type AnyPost = NarocnikPost & StrankaPost & { slug: string; date: string; status: string; acf?: Record<string, ColValue> };
+type AnyPost = NarocnikPost & StrankaPost & LicencaPost & { slug: string; date: string; status: string; acf?: Record<string, ColValue> };
 
 export function DataTable({ cptSlug, onAdd }: { cptSlug: string; onAdd?: () => void }) {
   const [search, setSearch] = useState("");
@@ -522,6 +580,9 @@ export function DataTable({ cptSlug, onAdd }: { cptSlug: string; onAdd?: () => v
       )}
       {editTarget && cptSlug === "stranka" && (
         <UrediStrankaModal post={editTarget as StrankaPost} onClose={() => setEditTarget(null)} onSaved={handleRefresh} />
+      )}
+      {editTarget && cptSlug === "licenca" && (
+        <UrediLicencoModal post={editTarget as LicencaPost} onClose={() => setEditTarget(null)} onSaved={handleRefresh} />
       )}
 
       <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #f0f0f0", boxShadow: "0 1px 4px rgba(0,0,0,0.06)", overflow: "hidden" }}>

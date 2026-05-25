@@ -12,7 +12,7 @@ import { OpravilaView } from "@/components/admin/views/OpravilaView";
 import { StatistikaView, FinanceView } from "@/components/admin/views/FinanceStatistikaView";
 import { ProfilView } from "@/components/admin/views/ProfilView";
 import { StrankePoMesecu } from "@/components/admin/views/StrankePoMesecu";
-import { NovaStrankaModal, NovNarocnikModal, NovaPonudbaModal } from "@/components/admin/modals/StrankaModals";
+import { NovaStrankaModal, NovNarocnikModal, NovaPonudbaModal, NovaLicencaModal } from "@/components/admin/modals/StrankaModals";
 import { useSessionTimeout } from "@/hooks/useAuth";
 import { useStranke, useNarocniki } from "@/hooks/useWPData";
 import type { ActiveView } from "@/types/admin";
@@ -27,6 +27,7 @@ const navItems: { id: ActiveView; label: string; icon: React.ReactNode }[] = [
   { id: "stranka", label: "Storitve", icon: icons.building },
   { id: "opravila", label: "Opravila", icon: icons.task },
   { id: "statistika", label: "Statistika", icon: icons.chart },
+  { id: "licenca", label: "Licence", icon: icons.key },
   { id: "finance", label: "Finance", icon: icons.euro },
 ];
 
@@ -38,6 +39,7 @@ const titles: Record<ActiveView, string> = {
   opravila: "Opravila",
   statistika: "Statistika",
   finance: "Finance",
+  licenca: "Licence",
   profil: "Nastavitve profila",
 };
 
@@ -49,6 +51,7 @@ const subtitles: Record<ActiveView, string> = {
   opravila: "Vsa opravila in popravki za naročnike",
   statistika: "Statistika naročnikov po mesecih in storitvah",
   finance: "Pregled prihodkov in finančnih podatkov",
+  licenca: "Pregled licenčnih ključev",
   profil: "Urejanje podatkov prijavljenega uporabnika",
 };
 
@@ -174,6 +177,7 @@ export default function Dashboard() {
   const [showNovaStranka, setShowNovaStranka] = useState(false);
   const [showNovNarocnik, setShowNovNarocnik] = useState(false);
   const [showNovaPonudba, setShowNovaPonudba] = useState(false);
+  const [showNovaLicenca, setShowNovaLicenca] = useState(false);
   const [dataTableKey, setDataTableKey] = useState(0);
   const { stranke: strankeList } = useStranke();
   const { narocniki: narocnikiList } = useNarocniki();
@@ -327,6 +331,7 @@ export default function Dashboard() {
           {showNovaStranka && <NovaStrankaModal onClose={() => setShowNovaStranka(false)} onSaved={handleSaved} narocniki={narocnikiList} />}
           {showNovNarocnik && <NovNarocnikModal onClose={() => setShowNovNarocnik(false)} onSaved={handleSaved} />}
           {showNovaPonudba && <NovaPonudbaModal onClose={() => setShowNovaPonudba(false)} onSaved={handleSaved} stranke={strankeList} />}
+          {showNovaLicenca && <NovaLicencaModal onClose={() => setShowNovaLicenca(false)} onSaved={handleSaved} />}
 
           {/* Active view */}
           {activeView === "dashboard" ? (
@@ -351,6 +356,8 @@ export default function Dashboard() {
                     ? () => setShowNovNarocnik(true)
                     : activeView === "ponudba"
                     ? () => setShowNovaPonudba(true)
+                    : activeView === "licenca"
+                    ? () => setShowNovaLicenca(true)
                     : undefined
                 }
               />

@@ -111,4 +111,11 @@ export const CPT_CONFIGS: CPTConfig[] = [
     icon: "🏢",
     color: "orange",
   },
+  {
+    slug: "licenca",
+    label: "Licence",
+    labelSingular: "Licenca",
+    icon: "🔑",
+    color: "purple",
+  },
 ];

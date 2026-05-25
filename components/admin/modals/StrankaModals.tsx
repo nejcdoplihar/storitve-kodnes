@@ -1,6 +1,6 @@
 "use client";
 // components/admin/modals/StrankaModals.tsx
-// Modali za dodajanje: Nova Stranka, Nov Naročnik, Nova Ponudba
+// Modali za dodajanje: Nova Stranka, Nov Naročnik, Nova Ponudba, Nova Licenca
 
 import { useState, useRef } from "react";
 import { BRAND } from "@/lib/constants";
@@ -12,6 +12,7 @@ import {
   ErrorMsg,
   fldStyle,
 } from "../UI";
+import { LicencniKljucInput } from "../LicencniKljuc";
 import type { Post } from "@/types/admin";
 
 // ============================================================
@@ -1116,6 +1117,71 @@ export function NovaPonudbaModal({
         />
       </FormField>
 
+      <ErrorMsg msg={error} />
+    </ModalWrapper>
+  );
+}
+
+// ============================================================
+// NOVA LICENCA MODAL
+// ============================================================
+export function NovaLicencaModal({
+  onClose,
+  onSaved,
+}: {
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [title, setTitle] = useState("");
+  const [licencniKljuc, setLicencniKljuc] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSave = async () => {
+    if (!title.trim()) { setError("Naziv licence je obvezen"); return; }
+    setSaving(true);
+    setError("");
+    try {
+      const res = await fetch("/api/licenca/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: title.trim(), licencni_kljuc: licencniKljuc.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Napaka");
+      onSaved();
+      onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Napaka");
+      setSaving(false);
+    }
+  };
+
+  return (
+    <ModalWrapper
+      title="Nova licenca"
+      onClose={onClose}
+      footer={
+        <>
+          <BtnSecondary onClick={onClose}>Prekliči</BtnSecondary>
+          <BtnPrimary onClick={handleSave} disabled={saving}>
+            {saving ? "Shranjujem..." : "Ustvari licenco"}
+          </BtnPrimary>
+        </>
+      }
+    >
+      <FormField label="Naziv licence" required>
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="npr. Adobe Creative Cloud — Stranka X"
+          style={fldStyle}
+          autoFocus
+        />
+      </FormField>
+      <FormField label="Licenčni ključ">
+        <LicencniKljucInput value={licencniKljuc} onChange={setLicencniKljuc} />
+      </FormField>
       <ErrorMsg msg={error} />
     </ModalWrapper>
   );
