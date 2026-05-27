@@ -3,6 +3,7 @@
 // Pogled za opravila: tabela z beleženjem časa, urno postavko in statusom plačila
 
 import { useState, useMemo, useRef, useEffect } from "react";
+import * as XLSX from "xlsx";
 import { useOpravila } from "@/hooks/useOpravila";
 import { useStranke, useNarocniki } from "@/hooks/useWPData";
 import { useCurrentUser } from "@/hooks/useAuth";
@@ -14,6 +15,54 @@ import { TableSkeleton, Skeleton } from "../Skeletons";
 import type { Opravilo } from "@/types/admin";
 import type { Post } from "@/types/admin";
 import { getTitleById } from "@/lib/helpers";
+
+// ============================================================
+// IZVOZ — CSV in Excel
+// ============================================================
+function buildRows(items: Opravilo[], stranke: Post[], narocniki: Post[]): (string | number)[][] {
+  const header = ["Datum", "Naročnik", "Stranka", "Naslov", "Opis", "Uporabnik", "Čas (h)", "Postavka (€/h)", "Znesek (€)", "Plačano"];
+  const rows = items.map((o) => {
+    const postavka = o.acf?.custom_postavka ? (o.acf?.urna_postavka || 35) : 35;
+    const znesek = (o.acf?.cas_ure || 0) * postavka;
+    return [
+      fmtDate(o.acf?.datum_opravila || ""),
+      getTitleById(narocniki, o.acf?.narocnik_rel?.[0]) || "",
+      getTitleById(stranke, o.acf?.stranka_rel?.[0]) || "",
+      o.acf?.naslov_opravila || o.title.rendered.replace(/<[^>]*>/g, ""),
+      o.acf?.opis_opravila || "",
+      o.acf?.uporabnik || "",
+      o.acf?.cas_ure || 0,
+      postavka,
+      znesek,
+      (typeof o.acf?.placano === "boolean" ? o.acf.placano : o.acf?.placano === "1" || o.acf?.placano === 1) ? "Da" : "Ne",
+    ];
+  });
+  return [header, ...rows];
+}
+
+function exportCSV(items: Opravilo[], stranke: Post[], narocniki: Post[], filename: string) {
+  const data = buildRows(items, stranke, narocniki);
+  const csv = data.map((row) =>
+    row.map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(",")
+  ).join("\n");
+  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportXLSX(items: Opravilo[], stranke: Post[], narocniki: Post[], filename: string) {
+  const data = buildRows(items, stranke, narocniki);
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  ws["!cols"] = [
+    { wch: 12 }, { wch: 22 }, { wch: 22 }, { wch: 32 },
+    { wch: 42 }, { wch: 14 }, { wch: 10 }, { wch: 14 }, { wch: 12 }, { wch: 10 },
+  ];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Opravila");
+  XLSX.writeFile(wb, filename);
+}
 
 const CAS_OPTIONS = Array.from({ length: 32 }, (_, i) => (i + 1) * 0.5);
 
@@ -917,7 +966,7 @@ export function OpravilaTabela({
           </div>
         )}
         {/* Toolbar */}
-        <div style={{ padding: "14px 20px", borderBottom: "1px solid #f5f5f5", display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ padding: "14px 20px", borderBottom: "1px solid #f5f5f5", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <span style={{ fontSize: 14, fontWeight: 600, color: "#111", flex: 1 }}>Opravila ({filtered.length}{hasFilter ? ` / ${opravila.length}` : ""})</span>
           {selected.size > 0 && (
             <div style={{ display: "flex", gap: 8 }}>
@@ -932,6 +981,36 @@ export function OpravilaTabela({
               </button>
             </div>
           )}
+          {/* Izvoz */}
+          {(() => {
+            const exportItems = selected.size > 0 ? filtered.filter((o) => selected.has(o.id)) : filtered;
+            const label = selected.size > 0 ? `izbrane (${selected.size})` : `vse (${filtered.length})`;
+            const dateStr = new Date().toISOString().slice(0, 10);
+            const btnStyle: React.CSSProperties = {
+              padding: "6px 11px", borderRadius: 8, border: "1px solid #e5e7eb",
+              background: "#fff", color: "#374151", fontSize: 12, fontWeight: 500,
+              cursor: "pointer", display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap",
+            };
+            return (
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <span style={{ fontSize: 11, color: "#aaa", whiteSpace: "nowrap" }}>Izvozi {label}:</span>
+                <button
+                  onClick={() => exportCSV(exportItems, stranke, narocniki, `opravila_${dateStr}.csv`)}
+                  style={btnStyle}
+                  title={`Izvozi ${label} kot CSV`}
+                >
+                  {icons.download} CSV
+                </button>
+                <button
+                  onClick={() => exportXLSX(exportItems, stranke, narocniki, `opravila_${dateStr}.xlsx`)}
+                  style={btnStyle}
+                  title={`Izvozi ${label} kot Excel`}
+                >
+                  {icons.download} Excel
+                </button>
+              </div>
+            );
+          })()}
           <button onClick={onRefetch} style={{ border: "none", background: "transparent", cursor: "pointer", color: "#aaa", display: "flex", alignItems: "center" }} title="Osveži">
             {icons.refresh}
           </button>
