@@ -2,6 +2,7 @@
 // app/admin/page.tsx — mobilno prilagojen layout s hamburger menijem
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { BRAND } from "@/lib/constants";
 import { icons } from "@/components/admin/Icons";
 import { GlobalSearchBar } from "@/components/admin/GlobalSearchBar";
@@ -140,6 +141,53 @@ function SidebarContent({
             </button>
           );
         })}
+
+        {/* Ločena povezava na interno AI stran (server route /admin/agent) */}
+        <Link
+          href="/admin/agent"
+          title={!sidebarOpen ? "AI pregledi" : undefined}
+          style={{
+            width: "100%",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "11px 10px",
+            borderRadius: 8,
+            background: "transparent",
+            color: "#94a3b8",
+            fontSize: 14,
+            marginTop: 8,
+            textDecoration: "none",
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = "#1e293b"; e.currentTarget.style.color = "#fff"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#94a3b8"; }}
+        >
+          <span style={{ flexShrink: 0 }}>{icons.chart}</span>
+          {sidebarOpen && <span>AI pregledi ✨</span>}
+        </Link>
+
+        <Link
+          href="/admin/odobritve"
+          title={!sidebarOpen ? "Odobritve" : undefined}
+          style={{
+            width: "100%",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "11px 10px",
+            borderRadius: 8,
+            background: "transparent",
+            color: "#94a3b8",
+            fontSize: 14,
+            marginTop: 2,
+            textDecoration: "none",
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = "#1e293b"; e.currentTarget.style.color = "#fff"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#94a3b8"; }}
+        >
+          <span style={{ flexShrink: 0 }}>{icons.task}</span>
+          {sidebarOpen && <span>Odobritve</span>}
+        </Link>
       </nav>
 
       {/* Bottom: profil + toggle */}

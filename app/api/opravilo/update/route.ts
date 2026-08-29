@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
+import { resolveActor } from "@/lib/agentWriteAuth";
 
 const WP_URL = process.env.NEXT_PUBLIC_WORDPRESS_URL || "";
 const WP_USER = process.env.WP_APP_USER || "";
 const WP_PASS = process.env.WP_APP_PASSWORD || "";
 
 export async function POST(req: NextRequest) {
-  const cookieStore = await cookies();
-  const auth = cookieStore.get("dashboard_auth")?.value;
-  if (!auth) return NextResponse.json({ error: "Ni avtorizacije" }, { status: 401 });
+  if (!(await resolveActor(req))) return NextResponse.json({ error: "Ni avtorizacije" }, { status: 401 });
 
   const { ids, placano } = await req.json();
 

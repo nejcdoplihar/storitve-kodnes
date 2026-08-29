@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { resolveActor } from "@/lib/agentWriteAuth";
 
 export async function POST(req: NextRequest) {
+  if (!(await resolveActor(req))) {
+    return NextResponse.json({ error: "Ni avtorizacije" }, { status: 401 });
+  }
   const { id, currentDate } = await req.json();
 
   if (!id || !currentDate) {
