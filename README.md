@@ -103,10 +103,16 @@ Za objavo integracije:
 Project → Settings → Environment Variables (za Production):
 ```
 SESSION_SECRET, WP_APP_USER, WP_APP_PASSWORD, NEXT_PUBLIC_WORDPRESS_URL   # obstoječe
-AGENT_API_TOKEN        # agentovo BRANJE
-AGENT_WRITE_TOKEN      # agentovo PISANJE
+AGENT_API_TOKEN        # agentovo BRANJE (/api/agent/*)
+AGENT_WRITE_TOKEN      # agentovo PISANJE (odobritve → zapis)
+ANTHROPIC_API_KEY      # dashboard AI klepet (/admin/chat) — brez njega vrne 500
 ```
-Iste vrednosti tokenov morajo biti tudi v agentovem `.env` (langchain-agent).
+Vrednosti `AGENT_API_TOKEN` / `AGENT_WRITE_TOKEN` morajo biti iste tudi v agentovem
+`.env` (langchain-agent), če uporabljaš tudi zunanji Python agent.
+
+> **AI klepet (`/api/agent/chat`)** ima `maxDuration = 60` (orodna zanka je lahko
+> daljša). To zahteva **Vercel Pro / Fluid Compute**; na Hobby je meja 10 s in
+> daljši klepet lahko poteče.
 
 ### 2) WordPress — mu-plugin
 Kopiraj `wp-mu-plugin/agent-actions.php` v `wp-content/mu-plugins/` na WP strežniku
@@ -120,8 +126,11 @@ V `.env`: `API_BASE_URL=https://admin.kodnes.com` (produkcija) ali
 `http://localhost:3000` (razvoj).
 
 ### 5) Preveri po objavi
-- `admin.kodnes.com/admin/agent` (AI pregledi) in `/admin/odobritve` se odpreta (za prijavljene).
-- Agent zna prebrati podatke in ustvariti predlog; predlog se pojavi v Odobritvah.
+- `/admin/agent` (AI pregledi), `/admin/odobritve` (Odobritve) in `/admin/chat`
+  (AI klepet) se odprejo za prijavljene.
+- V klepetu vprašaj npr. »finančni pregled« → odgovori z živimi podatki.
+- Agent zna ustvariti predlog (npr. »dodaj opravilo …«); pojavi se v Odobritvah,
+  po potrditvi se zapiše.
 
 > Opomba: preveri, da se `next.config.ts` → `images.remotePatterns.hostname`
 > ujema s tvojo WP domeno (npr. `storitve.kodnes.com`), sicer `next/image` ne bo
