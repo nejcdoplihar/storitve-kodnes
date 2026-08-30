@@ -28,8 +28,22 @@ export default function ChatPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: next }),
       });
-      const data = await res.json();
-      setMessages([...next, { role: "assistant", content: res.ok ? data.reply : `Napaka: ${data.error}` }]);
+      if (!res.ok || !res.body) {
+        const err = await res.json().catch(() => ({ error: res.statusText }));
+        setMessages([...next, { role: "assistant", content: `Napaka: ${err.error}` }]);
+        return;
+      }
+      // Beri tok in izpisuj sproti
+      setMessages([...next, { role: "assistant", content: "" }]);
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let acc = "";
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        acc += decoder.decode(value, { stream: true });
+        setMessages([...next, { role: "assistant", content: acc }]);
+      }
     } catch (e) {
       setMessages([...next, { role: "assistant", content: `Napaka: ${String(e)}` }]);
     } finally {

@@ -1,4 +1,4 @@
-// POST /api/agent/chat — dashboard AI klepet (Anthropic Tool Runner).
+// POST /api/agent/chat — dashboard AI klepet (Anthropic Tool Runner, STREAMING).
 // Bere žive podatke prek orodij; spremembe ustvari kot predloge (Odobritve).
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
@@ -6,7 +6,7 @@ import { getSessionUser } from "@/lib/agentWriteAuth";
 import { chatTools } from "@/lib/agentChatTools";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60; // Vercel: daljša orodna zanka
+export const maxDuration = 60;
 
 const SYSTEM = `Si operativni pomočnik agencije Kodnes. Bereš ŽIVE podatke (naročniki,
 storitve, finance, opravila) prek orodij in odgovarjaš v slovenščini.
@@ -31,21 +31,38 @@ export async function POST(req: NextRequest) {
   }
 
   const client = new Anthropic();
-  try {
-    const final = await client.beta.messages.toolRunner({
-      model: "claude-sonnet-5",
-      max_tokens: 4096,
-      thinking: { type: "disabled" },
-      system: SYSTEM,
-      tools: chatTools,
-      messages: messages as Anthropic.Beta.BetaMessageParam[],
-    });
-    const reply = final.content
-      .filter((b): b is Anthropic.Beta.BetaTextBlock => b.type === "text")
-      .map((b) => b.text)
-      .join("");
-    return NextResponse.json({ reply });
-  } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 500 });
-  }
+  const encoder = new TextEncoder();
+
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      try {
+        const runner = client.beta.messages.toolRunner({
+          model: "claude-sonnet-5",
+          max_tokens: 4096,
+          thinking: { type: "disabled" },
+          system: SYSTEM,
+          tools: chatTools,
+          messages: messages as Anthropic.Beta.BetaMessageParam[],
+          stream: true,
+        });
+        // Vsak korak (turn) je svoj tok; naprej pošiljamo besedilne delte.
+        for await (const turnStream of runner) {
+          for await (const event of turnStream) {
+            if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+              controller.enqueue(encoder.encode(event.delta.text));
+            }
+          }
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        controller.enqueue(encoder.encode(`\n\n[Napaka: ${msg}]`));
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
+  });
 }
