@@ -188,6 +188,29 @@ function SidebarContent({
           <span style={{ flexShrink: 0 }}>{icons.task}</span>
           {sidebarOpen && <span>Odobritve</span>}
         </Link>
+
+        <Link
+          href="/admin/chat"
+          title={!sidebarOpen ? "AI klepet" : undefined}
+          style={{
+            width: "100%",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "11px 10px",
+            borderRadius: 8,
+            background: "transparent",
+            color: "#94a3b8",
+            fontSize: 14,
+            marginTop: 2,
+            textDecoration: "none",
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = "#1e293b"; e.currentTarget.style.color = "#fff"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#94a3b8"; }}
+        >
+          <span style={{ flexShrink: 0 }}>💬</span>
+          {sidebarOpen && <span>AI klepet</span>}
+        </Link>
       </nav>
 
       {/* Bottom: profil + toggle */}
