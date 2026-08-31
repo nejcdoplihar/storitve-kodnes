@@ -1,11 +1,10 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
-import Link from "next/link";
 import { BRAND } from "@/lib/constants";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
-export default function ChatPage() {
+export default function AiChatPage() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -33,7 +32,6 @@ export default function ChatPage() {
         setMessages([...next, { role: "assistant", content: `Napaka: ${err.error}` }]);
         return;
       }
-      // Beri tok in izpisuj sproti
       setMessages([...next, { role: "assistant", content: "" }]);
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
@@ -52,51 +50,51 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="mx-auto flex h-[calc(100vh-2rem)] max-w-3xl flex-col p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <h1 className="text-xl font-bold text-gray-900">AI klepet</h1>
-        <Link href="/admin" className="text-sm font-medium hover:underline" style={{ color: BRAND }}>
-          ← Nazaj na dashboard
-        </Link>
-      </div>
-
-      <div className="flex-1 space-y-3 overflow-auto rounded-xl border border-gray-200 bg-white p-4">
+    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 220px)", minHeight: 400 }}>
+      <div style={{ flex: 1, overflow: "auto", background: "#fafafa", border: "1px solid #f0f0f0", borderRadius: 12, padding: 16 }}>
         {messages.length === 0 && (
-          <p className="text-sm text-gray-400">
-            Vprašaj npr. »Naredi finančni pregled«, »Katere storitve potečejo v 30 dneh?« ali
-            »Dodaj opravilo za stranko X«.
+          <p style={{ color: "#999", fontSize: 14 }}>
+            Vprašaj npr. »Naredi finančni pregled«, »Katere storitve potečejo v 30 dneh?« ali »Dodaj opravilo za stranko X«.
           </p>
         )}
         {messages.map((m, i) => (
-          <div key={i} className={m.role === "user" ? "text-right" : ""}>
+          <div key={i} style={{ textAlign: m.role === "user" ? "right" : "left", marginBottom: 10 }}>
             <div
-              className={`inline-block max-w-[85%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm ${
-                m.role === "user" ? "bg-gray-100 text-gray-900" : "border border-gray-200 bg-gray-50 text-gray-800"
-              }`}
+              style={{
+                display: "inline-block",
+                maxWidth: "85%",
+                whiteSpace: "pre-wrap",
+                textAlign: "left",
+                borderRadius: 14,
+                padding: "9px 13px",
+                fontSize: 14,
+                lineHeight: 1.5,
+                background: m.role === "user" ? BRAND : "#fff",
+                color: m.role === "user" ? "#fff" : "#222",
+                border: m.role === "user" ? "none" : "1px solid #f0f0f0",
+                boxShadow: m.role === "user" ? "none" : "0 1px 3px rgba(0,0,0,0.05)",
+              }}
             >
               {m.content}
             </div>
           </div>
         ))}
-        {loading && <div className="text-sm text-gray-400">razmišljam…</div>}
+        {loading && <div style={{ fontSize: 13, color: "#999" }}>razmišljam…</div>}
         <div ref={endRef} />
       </div>
 
-      <div className="mt-3 flex gap-2">
+      <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") send();
-          }}
+          onKeyDown={(e) => { if (e.key === "Enter") send(); }}
           placeholder="Vprašaj o Kodnes…"
-          className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-gray-400"
+          style={{ flex: 1, borderRadius: 10, border: "1px solid #ddd", padding: "10px 12px", fontSize: 14, outline: "none" }}
         />
         <button
           onClick={send}
           disabled={loading}
-          className="rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-          style={{ background: BRAND }}
+          style={{ borderRadius: 10, padding: "10px 18px", fontSize: 14, fontWeight: 600, color: "#fff", background: BRAND, border: "none", cursor: loading ? "default" : "pointer", opacity: loading ? 0.6 : 1 }}
         >
           Pošlji
         </button>

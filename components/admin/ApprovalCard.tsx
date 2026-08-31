@@ -1,7 +1,13 @@
 "use client";
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import { BRAND } from "@/lib/constants";
 import type { AgentAction } from "@/lib/agentActions";
+
+const card: CSSProperties = { background: "#fff", borderRadius: 12, border: "1px solid #f0f0f0", boxShadow: "0 1px 3px rgba(0,0,0,0.05)", padding: 16 };
+const btn = (bg: string, color: string): CSSProperties => ({
+  borderRadius: 8, padding: "7px 14px", fontSize: 13, fontWeight: 600,
+  border: bg === "#fff" ? "1px solid #ddd" : "none", background: bg, color, cursor: "pointer",
+});
 
 export function ApprovalCard({ action }: { action: AgentAction }) {
   const [state, setState] = useState<"idle" | "working" | "done">("idle");
@@ -31,56 +37,27 @@ export function ApprovalCard({ action }: { action: AgentAction }) {
   }
 
   if (state === "done") {
-    return (
-      <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
-        #{action.id} · {action.summary} — {msg}
-      </div>
-    );
+    return <div style={{ ...card, background: "#f9fafb", color: "#666", fontSize: 13 }}>#{action.id} · {action.summary} — {msg}</div>;
   }
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-      <div className="font-medium text-gray-900">{action.summary}</div>
-      <div className="mt-0.5 text-xs text-gray-500">{action.kind} → {action.endpoint}</div>
-      <pre className="mt-2 max-h-40 overflow-auto rounded bg-gray-50 p-2 text-xs text-gray-700">
+    <div style={card}>
+      <div style={{ fontWeight: 600, color: "#111", fontSize: 14 }}>{action.summary}</div>
+      <div style={{ fontSize: 12, color: "#999", marginTop: 2 }}>{action.kind} → {action.endpoint}</div>
+      <pre style={{ marginTop: 8, maxHeight: 160, overflow: "auto", background: "#fafafa", border: "1px solid #f0f0f0", borderRadius: 8, padding: 10, fontSize: 12, color: "#444" }}>
         {JSON.stringify(action.payload, null, 2)}
       </pre>
-      {msg && <div className="mt-2 text-sm text-red-600">{msg}</div>}
+      {msg && <div style={{ marginTop: 8, fontSize: 13, color: "#dc2626" }}>{msg}</div>}
       {!confirming ? (
-        <div className="mt-3 flex gap-2">
-          <button
-            onClick={() => setConfirming(true)}
-            className="rounded px-3 py-1.5 text-sm font-medium text-white"
-            style={{ background: BRAND }}
-          >
-            Odobri
-          </button>
-          <button
-            disabled={state === "working"}
-            onClick={() => run("reject")}
-            className="rounded border border-gray-300 px-3 py-1.5 text-sm text-gray-700"
-          >
-            Zavrni
-          </button>
+        <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+          <button style={btn(BRAND, "#fff")} onClick={() => setConfirming(true)}>Odobri</button>
+          <button style={btn("#fff", "#555")} disabled={state === "working"} onClick={() => run("reject")}>Zavrni</button>
         </div>
       ) : (
-        <div className="mt-3 flex items-center gap-2">
-          <span className="text-sm text-gray-700">Uveljavi v živem sistemu?</span>
-          <button
-            disabled={state === "working"}
-            onClick={() => run("apply")}
-            className="rounded px-3 py-1.5 text-sm font-medium text-white"
-            style={{ background: BRAND }}
-          >
-            Da, uveljavi
-          </button>
-          <button
-            disabled={state === "working"}
-            onClick={() => setConfirming(false)}
-            className="rounded border border-gray-300 px-3 py-1.5 text-sm text-gray-700"
-          >
-            Prekliči
-          </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 13, color: "#555" }}>Uveljavi v živem sistemu?</span>
+          <button style={btn(BRAND, "#fff")} disabled={state === "working"} onClick={() => run("apply")}>Da, uveljavi</button>
+          <button style={btn("#fff", "#555")} disabled={state === "working"} onClick={() => setConfirming(false)}>Prekliči</button>
         </div>
       )}
     </div>
