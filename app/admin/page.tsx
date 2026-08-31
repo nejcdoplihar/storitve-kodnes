@@ -13,6 +13,7 @@ import { OpravilaView } from "@/components/admin/views/OpravilaView";
 import { StatistikaView, FinanceView } from "@/components/admin/views/FinanceStatistikaView";
 import { ProfilView } from "@/components/admin/views/ProfilView";
 import { StrankePoMesecu } from "@/components/admin/views/StrankePoMesecu";
+import { AiAgentView } from "@/components/admin/views/AiAgentView";
 import { NovaStrankaModal, NovNarocnikModal, NovaPonudbaModal, NovaLicencaModal } from "@/components/admin/modals/StrankaModals";
 import { useSessionTimeout } from "@/hooks/useAuth";
 import { useStranke, useNarocniki } from "@/hooks/useWPData";
@@ -42,6 +43,7 @@ const titles: Record<ActiveView, string> = {
   finance: "Finance",
   licenca: "Licence",
   profil: "Nastavitve profila",
+  ai: "AI agent",
 };
 
 const subtitles: Record<ActiveView, string> = {
@@ -54,6 +56,7 @@ const subtitles: Record<ActiveView, string> = {
   finance: "Pregled prihodkov in finančnih podatkov",
   licenca: "Pregled licenčnih ključev",
   profil: "Urejanje podatkov prijavljenega uporabnika",
+  ai: "Klepet, pregledi in odobritve na enem mestu",
 };
 
 // ============================================================
@@ -142,9 +145,9 @@ function SidebarContent({
           );
         })}
 
-        {/* En vstop v AI agenta (klepet + pregledi + odobritve) */}
-        <Link
-          href="/admin/ai"
+        {/* AI agent — pogled znotraj dashboarda (na dnu, nad črto) */}
+        <button
+          onClick={() => onNavigate("ai")}
           title={!sidebarOpen ? "AI agent" : undefined}
           style={{
             width: "100%",
@@ -153,18 +156,22 @@ function SidebarContent({
             gap: 10,
             padding: "11px 10px",
             borderRadius: 8,
-            background: "transparent",
-            color: "#94a3b8",
+            border: "none",
+            cursor: "pointer",
+            background: activeView === "ai" ? BRAND : "transparent",
+            color: activeView === "ai" ? "#fff" : "#94a3b8",
             fontSize: 14,
+            fontWeight: activeView === "ai" ? 600 : 400,
             marginTop: 8,
-            textDecoration: "none",
+            transition: "all 0.15s",
+            textAlign: "left",
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = "#1e293b"; e.currentTarget.style.color = "#fff"; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#94a3b8"; }}
+          onMouseEnter={(e) => { if (activeView !== "ai") { e.currentTarget.style.background = "#1e293b"; e.currentTarget.style.color = "#fff"; } }}
+          onMouseLeave={(e) => { if (activeView !== "ai") { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#94a3b8"; } }}
         >
           <span style={{ flexShrink: 0 }}>{icons.robot}</span>
           {sidebarOpen && <span>AI agent</span>}
-        </Link>
+        </button>
       </nav>
 
       {/* Bottom: profil + toggle */}
@@ -369,6 +376,8 @@ export default function Dashboard() {
             <OpravilaView />
           ) : activeView === "profil" ? (
             <ProfilView />
+          ) : activeView === "ai" ? (
+            <AiAgentView />
           ) : (
             <>
               <DataTable

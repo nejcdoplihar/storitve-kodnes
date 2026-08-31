@@ -4,7 +4,7 @@ import { BRAND } from "@/lib/constants";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
-export default function AiChatPage() {
+export function AiChat() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -50,7 +50,7 @@ export default function AiChatPage() {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 220px)", minHeight: 400 }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 320px)", minHeight: 360 }}>
       <div style={{ flex: 1, overflow: "auto", background: "#fafafa", border: "1px solid #f0f0f0", borderRadius: 12, padding: 16 }}>
         {messages.length === 0 && (
           <p style={{ color: "#999", fontSize: 14 }}>

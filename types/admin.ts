@@ -60,7 +60,8 @@ export type ActiveView =
   | "finance"
   | "opravila"
   | "licenca"
-  | "profil";
+  | "profil"
+  | "ai";
 
 export type LicencaACF = {
   licencni_kljuc?: string;
