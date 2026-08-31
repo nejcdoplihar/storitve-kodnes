@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { readLog } from "@/lib/activityLog";
+import { getSessionUser } from "@/lib/agentWriteAuth";
 
 export async function GET(req: NextRequest) {
-  const cookieStore = await cookies();
-  if (!cookieStore.get("dashboard_auth")?.value) {
+  if (!(await getSessionUser())) {
     return NextResponse.json({ error: "Ni avtorizacije" }, { status: 401 });
   }
 

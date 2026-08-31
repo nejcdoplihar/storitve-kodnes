@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { logActivity } from "@/lib/activityLog";
+import { resolveActor } from "@/lib/agentWriteAuth";
 
 const WP_URL = (process.env.NEXT_PUBLIC_WORDPRESS_URL || "").replace(/\/$/, "");
 const WP_USER = process.env.WP_APP_USER || "";
@@ -8,8 +8,7 @@ const WP_PASS = process.env.WP_APP_PASSWORD || "";
 const credentials = () => Buffer.from(`${WP_USER}:${WP_PASS}`).toString("base64");
 
 export async function POST(req: NextRequest) {
-  const cookieStore = await cookies();
-  const user = cookieStore.get("dashboard_auth")?.value || "neznan";
+  const user = await resolveActor(req);
   if (!user) return NextResponse.json({ error: "Ni avtorizacije" }, { status: 401 });
 
   const body = await req.json();
