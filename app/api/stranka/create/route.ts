@@ -64,9 +64,9 @@ export async function POST(req: NextRequest) {
 
     // ACF Relationship polje pričakuje array — false sproži "must have a valid post ID"
     if (hasNarocnik) {
-      acfPayload.narocnik_rel = [Number(narocnik_id)];
+      acfPayload.stranka_narocnik = [Number(narocnik_id)];
     } else if (clear_narocnik_rel) {
-      acfPayload.narocnik_rel = [];
+      acfPayload.stranka_narocnik = [];
     }
 
     const wpPayload = {

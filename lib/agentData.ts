@@ -33,10 +33,18 @@ export function parseStranka(p: Post) {
   const acf = (p.acf || {}) as Record<string, unknown>;
   const expiry = (acf.potek_storitev as string) || "";
   const cost = Number(acf.strosek ?? 0);
+  // Relacija storitev→naročnik (ACF polje `stranka_narocnik`; vrne tabelo ID-jev ali objektov).
+  const relRaw = acf.stranka_narocnik as unknown;
+  const relFirst = Array.isArray(relRaw) ? relRaw[0] : relRaw;
+  const narocnik_id =
+    relFirst == null ? null
+    : typeof relFirst === "object" ? ((relFirst as { ID?: number; id?: number }).ID ?? (relFirst as { id?: number }).id ?? null)
+    : Number(relFirst);
   return {
     id: p.id,
     name: clean(p.title?.rendered),
     slug: p.slug,
+    narocnik_id,
     active: !!acf.stanje_storitve,
     service: getStoritveLabel(acf.storitve as string | string[]),
     domain: (acf.domena_url as string) || null,
